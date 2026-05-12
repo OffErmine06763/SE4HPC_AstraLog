@@ -16,13 +16,14 @@ Here you can access the official documentation hub and web interface for the **A
 
 ## Team Members & Effort
 
-**To be changed**
+**TODO**
 
 | Name Surname | Person Code | Role / Main Focus | Effort (Hours) |
 | :--- | :--- | :--- | :--- |
 | **Student 1** | 12345678 | e.g., Software Architect & Backend Logic | XXh |
-| **Student 2** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
-| **Student 3** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
+| **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
+| **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
+| **Stanisław Ostyk-Narbutt** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
 
 *(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
 
@@ -39,7 +40,7 @@ Here you can access the official documentation hub and web interface for the **A
 **To be completed** 
 
 ### Language and Libraries
-- **Language:** 
+- **Language:** 🐍
 - **Libraries:** `paho-mqtt` (for HiveMQ Broker connection), ... **to be completed/changed as needed**.
 
 ### Architecture & Relation to Phase 1

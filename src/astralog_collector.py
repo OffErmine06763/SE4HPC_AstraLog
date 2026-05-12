@@ -41,6 +41,9 @@ class TelemetryCollector:
         self.buffer = []
         self.last_flush_time = time.time() * 1000
 
+    count = 0
+    start = time.perf_counter()
+
     def handle_message(self, payload):
         self.buffer.append(payload)
         current_time = time.time() * 1000
@@ -49,6 +52,14 @@ class TelemetryCollector:
             self.flush()
         elif self.mode == "time" and (current_time - self.last_flush_time) >= self.limit:
             self.flush()
+
+        self.count += 1
+        now = time.perf_counter()
+        if now - self.start >= 5.0:
+            hz = self.count / (now - self.start)
+            print(f"Frequency: {hz:.2f} iterations/sec")
+            self.start = now
+            self.count = 0
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
