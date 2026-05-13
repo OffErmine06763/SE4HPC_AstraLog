@@ -1,4 +1,4 @@
-from data_reader import DataReader
+from data_reader import DataReader, DataReaderType
 
 import paho.mqtt.client as mqtt
 import ssl
@@ -24,7 +24,6 @@ class DataStreamReader(DataReader):
     TOPIC = "esa/astralog/telemetry"
     USER = "students"
     PASSWORD = "Listeningstuff26"
-    OUTPUT_DIR = "collector_output"
 
     _client_id: str = ""
     _client: mqtt.Client
@@ -86,3 +85,7 @@ class DataStreamReader(DataReader):
 
     def __str__(self) -> str:
         return f"DataStreamReader (connected = {self._connected})"
+    
+    @staticmethod
+    def type() -> DataReaderType:
+        return DataReaderType.STREAM

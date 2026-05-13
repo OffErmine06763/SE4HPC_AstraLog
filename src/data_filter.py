@@ -2,7 +2,7 @@ from sensor_reading import SensorReading
 
 import json
 
-def validate_sensor_data(data_json: str, sensor_ids: dict[str, int]) -> tuple[bool, SensorReading]:
+def validate_sensor_data_json(data_json: str, sensor_ids: dict[str, int]) -> tuple[bool, SensorReading]:
     try:
         parsed = json.loads(data_json)
         reading = SensorReading()
@@ -28,3 +28,7 @@ def validate_sensor_data(data_json: str, sensor_ids: dict[str, int]) -> tuple[bo
         return True, reading
     except json.JSONDecodeError as e:
         return False, SensorReading()
+    
+def validate_sensor_data_csv(data_csv: str, sensor_ids: dict[str, int]) -> tuple[bool, SensorReading]:
+    # TODO: i think this should just convert to SensorReading
+    return False, SensorReading()

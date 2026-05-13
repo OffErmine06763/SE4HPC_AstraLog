@@ -1,4 +1,4 @@
-from data_reader import DataReader
+from data_reader import DataReader, DataReaderType
 from io import TextIOWrapper
 
 class DataFileReader(DataReader):
@@ -33,3 +33,7 @@ class DataFileReader(DataReader):
            return "DataFileReader (no file)"
         else:
            return f"DataFileReader ({self._filename})"
+        
+    @staticmethod
+    def type() -> DataReaderType:
+        return DataReaderType.FILE

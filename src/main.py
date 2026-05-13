@@ -2,6 +2,7 @@ from astralog import AstraLog
 from data_reader import DataReaderType
 from data_file_reader import DataFileReader
 from data_stream_reader import DataStreamReader
+from batch_manager import BatchManager
 
 import argparse
 
@@ -14,6 +15,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_reader_type: DataReaderType = DataReaderType.STREAM
+    batch_mode, batch_param = BatchManager.MODE_SIZE, 24
 
     alog = AstraLog()
 
@@ -26,5 +28,7 @@ if __name__ == "__main__":
         alog.set_data_source(src)
 
     alog.set_sensors("res/sensors_alpha.yaml")
+    alog.set_batch_mode(batch_mode, batch_param)
+    alog.set_batch_output_dir("collector_output")
 
     alog.start()

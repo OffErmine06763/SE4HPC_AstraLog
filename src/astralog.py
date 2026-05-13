@@ -1,9 +1,11 @@
-from data_reader import DataReader
+from data_reader import DataReader, DataReaderType
 from utils import get_key, FrequencyMeter
-from data_filter import validate_sensor_data
+from data_filter import validate_sensor_data_json, validate_sensor_data_csv
 from batch_manager import BatchManager
+from sensor_reading import SensorReading
 
 import yaml
+import os
 
 # fu GIL
 class AstraLog:
@@ -32,6 +34,7 @@ class AstraLog:
             return
 
         self._freq_meter.init()
+        self._batch_manager.init()
 
         while True:
             # handle execution metrics and keyboard
@@ -41,19 +44,26 @@ class AstraLog:
                 break
 
             # retrieve 1 entry from the data stream
-            valid, data_json = self._data_reader.read_one()
+            valid, data_raw = self._data_reader.read_one()
             if not valid: # EOF or connection issues
-                continue
+                break
 
-            # validate the json, returning a struct
-            valid, data = validate_sensor_data(data_json, self._sensor_ids)
+            # validate the json or csv, returning a struct
+            # TODO: i dont like the fact that we have to run this if at every iteration
+            # tho i dont like the idea of moving this in the reader, i'd rather have the reader
+            # to be a generic source of data, you know division of responsibilities
+            data: SensorReading
+            if self._data_reader.type() == DataReaderType.STREAM:
+                valid, data = validate_sensor_data_json(data_raw, self._sensor_ids)
+            else:
+                valid, data = validate_sensor_data_csv(data_raw, self._sensor_ids)
 
             if not valid:
                 continue
 
             # print(data_json)
 
-            self._batch_manager.add_to_batch(data)
+            self._batch_manager.add_to_batch(data, self._sensor_count)
 
         self._data_reader.close()
 
@@ -97,6 +107,13 @@ class AstraLog:
         print("AstraLog: reading sensor configuration file... done")
         return True
 
+    def set_batch_mode(self, mode, param):
+        self._batch_manager.set_mode(mode, param)
+
+    def set_batch_output_dir(self, path: str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        self._batch_manager.output_dir = path
 
     def __init__(self):
         self._freq_meter.on_hz = self.on_hz
