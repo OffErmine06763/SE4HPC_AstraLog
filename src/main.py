@@ -16,12 +16,15 @@ if __name__ == "__main__":
     data_reader_type: DataReaderType = DataReaderType.STREAM
 
     alog = AstraLog()
+
     if data_reader_type == DataReaderType.FILE:
         src = DataFileReader()
-        src.set_data_file("csv_input/export_sat_alpha_small.csv")
+        src.set_data_file("res/readings_alpha_smaller.csv")
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
         src = DataStreamReader()
         alog.set_data_source(src)
+
+    alog.set_sensors("res/sensors_alpha.yaml")
 
     alog.start()

@@ -7,7 +7,7 @@ class DataReaderType(Enum):
 
 class DataReader(ABC):
     @abstractmethod
-    def read_one(self):
+    def read_one(self) -> tuple[bool, str]:
         pass
 
     # either open file or connection, maybe rename to "init"

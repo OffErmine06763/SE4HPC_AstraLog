@@ -5,10 +5,12 @@ class DataFileReader(DataReader):
     _filename: str = ""
     _file: TextIOWrapper
 
-    def read_one(self):
-        line = self._file.readline()
-        # print(line)
-        # if (eof) ...
+    def read_one(self) -> tuple[bool, str]:
+        line: str = self._file.readline() # includes the \n
+        if line == "":
+            print("DataFileReader: EOF")
+            return False, ""
+        return True, line.strip()
 
 
     def set_data_file(self, filename: str):

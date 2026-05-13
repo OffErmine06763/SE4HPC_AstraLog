@@ -1,16 +1,27 @@
 from data_reader import DataReader
+from utils import get_key, FrequencyMeter
+from data_filter import validate_sensor_data
+from batch_manager import BatchManager
 
-import time
-
+import yaml
 
 # fu GIL
 class AstraLog:
     _data_reader: DataReader | None = None
+    _batch_manager = BatchManager()
+    _sensor_ids: dict[str, int] = dict()
 
+    _reading_freq: float = 1
+    _sensor_count: int = 0
+
+    _freq_meter = FrequencyMeter()
 
     def start(self):
         if self._data_reader is None:
-            print("Specify a sensor data source using AstraLog.set_data_source")
+            print("AstraLog: specify a sensor data source using AstraLog.set_data_source")
+            return
+        if self._sensor_count == 0:
+            print("AstraLog: provide sensors configuration using AstraLog.set_sensors")
             return
         
         print("AstraLog: START")
@@ -20,22 +31,29 @@ class AstraLog:
             print("AstraLog: failed to open connection to data source, aborting")
             return
 
-        count = 0
-        start = time.perf_counter()
+        self._freq_meter.init()
 
         while True:
-            self._data_reader.read_one()
-            
-            count += 1
-            now = time.perf_counter()
-            if now - start >= 5.0:
-                hz = count / (now - start)
-                print(f"AstraLog: {hz:.2f} iterations/sec")
-                start = now
-                count = 0
+            # handle execution metrics and keyboard
+            self._freq_meter.update()
+            key = get_key()
+            if key and key.lower() == "q":
+                break
 
-            # TODO: validate and add to batch
-            # TODO: how to exit this loop? how do i detect keystrokes in python?
+            # retrieve 1 entry from the data stream
+            valid, data_json = self._data_reader.read_one()
+            if not valid: # EOF or connection issues
+                continue
+
+            # validate the json, returning a struct
+            valid, data = validate_sensor_data(data_json, self._sensor_ids)
+
+            if not valid:
+                continue
+
+            # print(data_json)
+
+            self._batch_manager.add_to_batch(data)
 
         self._data_reader.close()
 
@@ -46,5 +64,46 @@ class AstraLog:
         self._data_reader = data_reader
         print(f"AstraLog: data source set to {data_reader.__str__()}")
 
+    def set_sensors(self, sensors_filename: str) -> bool:
+        print("AstraLog: reading sensor configuration file... ")
+        
+        try:
+            with open(sensors_filename, "r") as f:
+                sensors_yaml = yaml.safe_load(f)
+
+                counter = 0
+                for sensor in sensors_yaml["sensors"]:
+                    self._sensor_ids[sensor["id"]] = counter
+                    counter += 1
+                self._sensor_count = counter
+                rate_str: str = sensors_yaml["sensors"][0]["sampling_rate"]
+                self._reading_freq = float(rate_str[:-2]) # Hz
+
+                print(f"AstraLog: found {self._sensor_count} sensors at {self._reading_freq}Hz")
+
+        except FileNotFoundError:
+            print(f"AstraLog: sensor file '{sensors_filename}' not found")
+            return False
+        except PermissionError:
+            print(f"AstraLog: no permission to read sensor file '{sensors_filename}'")
+            return False
+        except yaml.YAMLError as e:
+            print(f"AstraLog: invalid YAML in sensor file '{sensors_filename}':", e, sep="\n")
+            return False
+        except Exception as e:
+            print(f"AstraLog: unexpected error reading sensor file '{sensors_filename}':", e, sep="\n")
+            return False
+        
+        print("AstraLog: reading sensor configuration file... done")
+        return True
+
+
     def __init__(self):
-        pass
+        self._freq_meter.on_hz = self.on_hz
+
+
+    def on_hz(self, hz):
+        print(f"AstraLog: {hz:.2f} iterations/sec", end = "")
+        if hz < 0.9 * self._reading_freq * self._sensor_count:
+            print(f" FALLING BEHIND (target = {self._reading_freq * self._sensor_count})", end="")
+        print()

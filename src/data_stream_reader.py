@@ -8,6 +8,7 @@ import os
 from queue import Queue
 import threading
 
+
 def on_message(self, userdata, msg):
     queue = userdata['queue']
     queue.put(msg.payload.decode('utf-8'))
@@ -37,23 +38,16 @@ class DataStreamReader(DataReader):
         self._client_id = f"Station_{uuid.uuid4().hex[:6]}"
 
 
-    def read_one(self):
+    def read_one(self) -> tuple[bool, str]:
         try:
             payload = self._message_queue.get(timeout=5)
-            # print(payload)
+            return True, payload
         except:
             # TODO: handle timeout
             pass
         
-        # self._message_event.wait(timeout=10) # blocks until message arrives
-
-        # if not self._message_event.is_set():
-        #    pass
-          
-        # print(self._message_payload)
-
         # TODO: handle connection issues / end of stream
-        pass
+        return False, ""
 
 
     def open(self) -> bool:
