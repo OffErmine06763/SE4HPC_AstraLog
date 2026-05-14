@@ -57,3 +57,8 @@ class FrequencyMeter:
     
     def init(self):
         self.start = time.perf_counter()
+
+
+class TimestampData:
+    ts: str = ""
+    readings: list[float | None]

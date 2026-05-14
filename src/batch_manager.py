@@ -1,7 +1,10 @@
 from sensor_reading import SensorReading
+from utils import TimestampData
 
 import time
 import os
+from io import StringIO
+import csv
 
 
 class BatchManager:
@@ -11,19 +14,16 @@ class BatchManager:
     #   reading1,reading2,reading3...
     #   timestamp2
     #   reading1,,reading3
+    # NOTE: only the first timestamp is useful, but keep all for clarity, maybe consider adding a header with the csv of the sensor names
     # NOTE: the sensor readings passed here are only the valid ones, so a
     # timestamp could have missing entries; in the file we have to support
     # missing values as well
     # NOTE: a batch could contain half a timestamp, so we omit the last received
     # timestamp and put it in the next batch
 
-    class Entry:
-        ts: str = ""
-        readings: list[float | None]
-
     _count = 0
     _ts_count = 0
-    _cache: list[Entry] = []
+    _cache: list[TimestampData] = []
     _current_ts: str = ""
 
     _sequence_number = 0
@@ -54,7 +54,7 @@ class BatchManager:
             # but we can reuse those allocated at previous batches.
             if self._ts_count == len(self._cache):
                 # add entry to cache for the new timestamp, initialized with None
-                new_entry = BatchManager.Entry()
+                new_entry = TimestampData()
                 new_entry.ts = data.ts
                 new_entry.readings = [None] * sensor_count
                 self._cache.append(new_entry)
@@ -98,15 +98,53 @@ class BatchManager:
                 f.write(self._cache[i].ts)
                 f.write("\n")
                 for r in self._cache[i].readings:
-                    f.write(str(r))
+                    if r is not None:
+                        f.write(str(r))
                     f.write(",")
                 f.write("\n")
+
+        # TODO: handle IO errors
 
         # move the last element at front
         self._cache[0].ts = self._cache[self._ts_count - 1].ts
         self._cache[0].readings = self._cache[self._ts_count - 1].readings.copy()
         self._count = sum(x is not None for x in self._cache[0].readings)
         self._ts_count = 1
+
+
+    @staticmethod
+    def parse_batch_file(content: str) -> list[TimestampData]:
+        batch_data: list[TimestampData] = []
+
+        def line_reader(s):
+            for line in s.splitlines():
+                yield line
+
+        reader = line_reader(content)
+
+        while True:
+            data = TimestampData()
+            
+            ts = next(reader, None)
+            if ts is None:
+                break
+            data.ts = ts
+
+            readings = next(reader, None)
+            if readings is None:
+                print("WARNING BatchManager: ill formatted batch file (timestamp with no data line)")
+                break
+            
+            csv_reader = csv.reader(StringIO(readings))
+            readings_list = next(csv_reader, None)
+            if readings_list is None:
+                print("WARNING BatchManager: this shouldn't happen")
+                break
+
+            data.readings = [float(x) if x != "" else None for x in readings_list]
+        
+        
+        return batch_data
     
 
     def init(self):

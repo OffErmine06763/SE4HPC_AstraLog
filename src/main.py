@@ -29,6 +29,8 @@ if __name__ == "__main__":
 
     alog.set_sensors("res/sensors_alpha.yaml")
     alog.set_batch_mode(batch_mode, batch_param)
-    alog.set_batch_output_dir("collector_output")
+    alog.set_batch_output_dir("out/readings")
+    alog.set_valid_output_file("out/valid.txt")
+    alog.set_alarms_output_file("out/alarms.txt")
 
     alog.start()
