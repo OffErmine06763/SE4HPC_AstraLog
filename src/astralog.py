@@ -109,6 +109,10 @@ class AstraLog:
 
     def set_batch_mode(self, mode, param):
         self._batch_manager.set_mode(mode, param)
+        if mode == BatchManager.MODE_SIZE and param < self._sensor_count:
+            # if this happens the batch manager won't be able to put any data
+            # in the batch files, cause they have to be rounded to a timestamp
+            print("AstraLog: WARNING sensor count greater than batch size")
 
     def set_batch_output_dir(self, path: str):
         if not os.path.exists(path):
