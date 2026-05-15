@@ -3,6 +3,15 @@ from rule import Rule, IndependentRule, LogicalCorrelationRule
 from io import TextIOWrapper
 from utils import TimestampData
 from typing import cast
+from queue import Queue
+
+
+def priority_to_str(p: int) -> str:
+    if p == 0:
+        return "LOW"
+    if p == 0:
+        return "MEDIUM"
+    return "HIGH"
 
 
 class RuleNode:
@@ -15,6 +24,8 @@ class RuleNode:
 class BatchAnalyzer:
     _valid_output_file: TextIOWrapper
     _alarms_output_file: TextIOWrapper
+
+    _sensor_id_to_name: list[str] = []
 
     _rules           : list[Rule]     = []  # since rules have progressive ids, this can be indexed using rule.id
     _indep_rules_id  : list[int]      = []  # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
@@ -108,9 +119,41 @@ class BatchAnalyzer:
         return True
 
     def write_valid_data(self, td: TimestampData):
-        print(f"VALID {td.ts}")
+        if self._valid_output_file.closed:
+            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
+            return
+        
+        self._valid_output_file.write(f"{td.ts};NOMINAL;")
+        for i in range(len(td.readings) - 1):
+            data = td.readings[i]
+            self._valid_output_file.write(f"{self._sensor_id_to_name[i]}:{data}|")
+        end = len(td.readings) - 1
+        self._valid_output_file.write(f"{self._sensor_id_to_name[end]}:{td.readings[end]}")
+        self._valid_output_file.write("\n")
+        
     def write_alarms(self, rule: Rule, td: TimestampData):
-        print(f"ALARM {td.ts} {rule.id}")
+        if self._alarms_output_file.closed:
+            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
+            return
+        
+        self._alarms_output_file.write(f"{td.ts};{rule.name};{priority_to_str(rule.priority)};")
+        if isinstance(rule, IndependentRule):
+            self._alarms_output_file.write(f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}")
+        elif isinstance(rule, LogicalCorrelationRule):
+            to_print: Queue[Rule] = Queue()
+            to_print.put(self._rules[rule.op1])
+            to_print.put(self._rules[rule.op2])
+
+            while not to_print.empty():
+                r = to_print.get()
+                if isinstance(r, IndependentRule):
+                    self._alarms_output_file.write(f"{self._sensor_id_to_name[r.sensor_id]};{td.readings[r.sensor_id]}")
+                elif isinstance(r, LogicalCorrelationRule):
+                    to_print.put(self._rules[r.op1])
+                    to_print.put(self._rules[r.op2])
+        
+        self._alarms_output_file.write("\n")
+            
 
 
     def set_valid_output_file(self, filename: str):
@@ -119,6 +162,8 @@ class BatchAnalyzer:
     def set_alarms_output_file(self, filename: str):
         self._alarms_output_file = open(filename, "w")
         # TODO: handle errors
+    def set_sensors(self, sensor_id_to_name: list[str]):
+        self._sensor_id_to_name = sensor_id_to_name
 
 
     def deinit(self):

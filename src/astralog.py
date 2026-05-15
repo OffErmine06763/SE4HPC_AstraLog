@@ -16,6 +16,7 @@ class AstraLog:
     _batch_manager = BatchManager()
     _batch_analyzer = BatchAnalyzer()
     _sensor_ids: dict[str, int] = dict()
+    _sensor_names: list[str] = []
 
     _reading_freq: float = 1
     _sensor_count: int = 0
@@ -155,12 +156,13 @@ class AstraLog:
     def set_sensors(self, sensors_filename: str) -> bool:
         print("AstraLog: reading sensor configuration file... ")
         
-        count, freq = parse_sensors_config(sensors_filename, self._sensor_ids)
+        count, freq = parse_sensors_config(sensors_filename, self._sensor_ids, self._sensor_names)
         if count == -1:
             return False
         
         self._sensor_count = count
         self._reading_freq = freq
+        self._batch_analyzer.set_sensors(self._sensor_names)
         print(f"AstraLog: found {self._sensor_count} sensors at {self._reading_freq}Hz")
         
         print("AstraLog: reading sensor configuration file... done")

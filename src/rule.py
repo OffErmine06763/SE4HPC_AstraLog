@@ -35,16 +35,22 @@ class Rule(ABC):
 # that have to define the abstract method is_violated(readings_list)
 # since they can just access whatever reading they need
 class IndependentRule(Rule):
+    operator: Operator
+    sensor_id: int
+
     @abstractmethod
     def is_violated(self, readings: list[float | None]) -> bool:
         pass
+
+    def __init__(self, priority: int, name: str, sensor_id: int, operator: Operator) -> None:
+        super().__init__(priority, name)
+        self.operator = operator
+        self.sensor_id = sensor_id
 
 
 class SimpleRule(IndependentRule):
     last_violated = False
     threshold: float
-    operator: Operator
-    sensor_id: int
 
 
     def is_violated(self, readings: list[float | None]) -> bool:
@@ -61,10 +67,8 @@ class SimpleRule(IndependentRule):
         return self.last_violated
     
     def __init__(self, priority: int, name: str, sensor_id: int, threshold: float, operator: Operator):
-        super().__init__(priority, name)
+        super().__init__(priority, name, sensor_id, operator)
         self.threshold = threshold
-        self.operator = operator
-        self.sensor_id = sensor_id
 
 
 
@@ -102,10 +106,8 @@ class StepDifferenceRule(IndependentRule):
                 return  delta > self.step
     
     def __init__(self, priority: int, name: str, sensor_id: int, step: float, operator: Operator):
-        super().__init__(priority, name)
+        super().__init__(priority, name, sensor_id, operator)
         self.step = step
-        self.operator = operator
-        self.sensor_id = sensor_id
 
 
 
@@ -136,11 +138,9 @@ class StatefulRule(IndependentRule):
         return self.consecutive_violations >= self.threshold
     
     def __init__(self, priority: int, name: str, sensor_id: int, threshold: float, max_violations: int, operator: Operator):
-        super().__init__(priority, name)
+        super().__init__(priority, name, sensor_id, operator)
         self.threshold = threshold
         self.max_violations = max_violations
-        self.sensor_id = sensor_id
-        self.operator = operator
 
 
 

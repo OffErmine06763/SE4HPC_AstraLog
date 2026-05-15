@@ -72,7 +72,7 @@ def parse_rules_config(rules_filename: str, sensor_ids: dict[str, int]) -> tuple
         return False, []
 
 
-def parse_sensors_config(sensors_filename: str, out_sensor_ids: dict[str, int]) -> tuple[int, float]:
+def parse_sensors_config(sensors_filename: str, out_sensor_ids: dict[str, int], out_sensor_names: list[str]) -> tuple[int, float]:
     try:
         with open(sensors_filename, "r") as f:
             sensors_yaml = yaml.safe_load(f)
@@ -80,6 +80,7 @@ def parse_sensors_config(sensors_filename: str, out_sensor_ids: dict[str, int]) 
             counter = 0
             for sensor in sensors_yaml["sensors"]:
                 out_sensor_ids[sensor["id"]] = counter
+                out_sensor_names.append(sensor["id"])
                 counter += 1
             rate_str: str = sensors_yaml["sensors"][0]["sampling_rate"]
             freq = float(rate_str[:-2]) # Hz
