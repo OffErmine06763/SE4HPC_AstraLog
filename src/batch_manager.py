@@ -1,5 +1,4 @@
-from sensor_reading import SensorReading
-from utils import TimestampData
+from utils import TimestampData, SensorReading
 
 import time
 import os
@@ -97,10 +96,12 @@ class BatchManager:
             for i in range(self._ts_count - (1 if not full else 0)):
                 f.write(self._cache[i].ts)
                 f.write("\n")
-                for r in self._cache[i].readings:
+                for r in self._cache[i].readings[:-1]:
                     if r is not None:
                         f.write(str(r))
                     f.write(",")
+                if self._cache[i].readings[-1] is not None:
+                    f.write(str(self._cache[i].readings[-1]))
                 f.write("\n")
 
         # TODO: handle IO errors
@@ -142,6 +143,7 @@ class BatchManager:
                 break
 
             data.readings = [float(x) if x != "" else None for x in readings_list]
+            batch_data.append(data)
         
         
         return batch_data

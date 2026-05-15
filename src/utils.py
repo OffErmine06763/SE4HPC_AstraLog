@@ -62,3 +62,9 @@ class FrequencyMeter:
 class TimestampData:
     ts: str = ""
     readings: list[float | None]
+
+
+class SensorReading:
+    ts: str
+    id: int
+    value: float

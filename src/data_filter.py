@@ -1,4 +1,4 @@
-from sensor_reading import SensorReading
+from utils import SensorReading
 
 import json
 from io import StringIO

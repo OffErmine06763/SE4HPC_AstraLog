@@ -1,2 +1,2 @@
-collector_output/*
+out/*
 src/__pycache__/*

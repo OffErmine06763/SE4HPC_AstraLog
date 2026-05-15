@@ -14,20 +14,21 @@ if __name__ == "__main__":
     # parser.add_argument("--seq-period", type=int, default=100, help="Sequence number period (default: 100)")
     args = parser.parse_args()
 
-    data_reader_type: DataReaderType = DataReaderType.STREAM
-    batch_mode, batch_param = BatchManager.MODE_SIZE, 24
+    data_reader_type: DataReaderType = DataReaderType.FILE
+    batch_mode, batch_param = BatchManager.MODE_SIZE, 8
 
     alog = AstraLog()
 
     if data_reader_type == DataReaderType.FILE:
         src = DataFileReader()
-        src.set_data_file("res/readings_alpha_smaller.csv")
+        src.set_data_file("res/readings_sigma.csv")
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
         src = DataStreamReader()
         alog.set_data_source(src)
 
-    alog.set_sensors("res/sensors_alpha.yaml")
+    alog.set_sensors("res/sensors_sigma.yaml")
+    alog.set_rules("res/rules_sigma.json")
     alog.set_batch_mode(batch_mode, batch_param)
     alog.set_batch_output_dir("out/readings")
     alog.set_valid_output_file("out/valid.txt")

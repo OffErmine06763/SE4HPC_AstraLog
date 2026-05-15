@@ -1,11 +1,10 @@
 from data_reader import DataReader, DataReaderType
-from utils import get_key, FrequencyMeter, TimestampData
+from utils import get_key, FrequencyMeter, TimestampData, SensorReading
 from data_filter import validate_sensor_data_json, validate_sensor_data_csv
 from batch_manager import BatchManager
-from sensor_reading import SensorReading
 from batch_analyzer import BatchAnalyzer
+from config_reader import parse_sensors_config, parse_rules_config
 
-import yaml
 import os
 import threading
 import time
@@ -128,39 +127,41 @@ class AstraLog:
         print("AstraLog: END")
 
 
+
     def set_data_source(self, data_reader: DataReader):
         self._data_reader = data_reader
         print(f"AstraLog: data source set to {data_reader.__str__()}")
 
+    def set_rules(self, rules_filename) -> bool:
+        if self._sensor_count == 0:
+            print("AstraLog: provide sensors configuration using AstraLog.set_sensors before specifying rules")
+            return False
+        
+        print("AstraLog: reading rules configuration file... ")
+        
+        ok, rules = parse_rules_config(rules_filename, self._sensor_ids)
+        if not ok:
+            return False
+        
+        print(f"AstraLog: found {len(rules)} rules")
+
+        ok = self._batch_analyzer.load_rules(rules_filename, rules)
+        if not ok:
+            return False
+
+        print("AstraLog: reading rules configuration file... done")
+        return ok
+
     def set_sensors(self, sensors_filename: str) -> bool:
         print("AstraLog: reading sensor configuration file... ")
         
-        try:
-            with open(sensors_filename, "r") as f:
-                sensors_yaml = yaml.safe_load(f)
-
-                counter = 0
-                for sensor in sensors_yaml["sensors"]:
-                    self._sensor_ids[sensor["id"]] = counter
-                    counter += 1
-                self._sensor_count = counter
-                rate_str: str = sensors_yaml["sensors"][0]["sampling_rate"]
-                self._reading_freq = float(rate_str[:-2]) # Hz
-
-                print(f"AstraLog: found {self._sensor_count} sensors at {self._reading_freq}Hz")
-
-        except FileNotFoundError:
-            print(f"AstraLog: sensor file '{sensors_filename}' not found")
+        count, freq = parse_sensors_config(sensors_filename, self._sensor_ids)
+        if count == -1:
             return False
-        except PermissionError:
-            print(f"AstraLog: no permission to read sensor file '{sensors_filename}'")
-            return False
-        except yaml.YAMLError as e:
-            print(f"AstraLog: invalid YAML in sensor file '{sensors_filename}':", e, sep="\n")
-            return False
-        except Exception as e:
-            print(f"AstraLog: unexpected error reading sensor file '{sensors_filename}':", e, sep="\n")
-            return False
+        
+        self._sensor_count = count
+        self._reading_freq = freq
+        print(f"AstraLog: found {self._sensor_count} sensors at {self._reading_freq}Hz")
         
         print("AstraLog: reading sensor configuration file... done")
         return True
@@ -171,6 +172,10 @@ class AstraLog:
             # if this happens the batch manager won't be able to put any data
             # in the batch files, cause they have to be rounded to a timestamp
             print("WARNING AstraLog: sensor count greater than batch size")
+        if mode == BatchManager.MODE_TIME and 1 / param > self._freq_meter:
+            # this shouldn't be a big deal, but we still generate some empty batches
+            print("WARNING AstraLog: batch frequency higher than sensor data generation frequency")
+
 
     def set_batch_output_dir(self, path: str):
         if not os.path.exists(path):
