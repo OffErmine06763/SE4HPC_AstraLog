@@ -6,6 +6,7 @@ class Operator(Enum):
     LESS = 0
     GREATER = 1
 
+
 class Logic(Enum):
     AND = 0
     OR = 1
@@ -42,7 +43,9 @@ class IndependentRule(Rule):
     def is_violated(self, readings: list[float | None]) -> bool:
         pass
 
-    def __init__(self, priority: int, name: str, sensor_id: int, operator: Operator) -> None:
+    def __init__(
+        self, priority: int, name: str, sensor_id: int, operator: Operator
+    ) -> None:
         super().__init__(priority, name)
         self.operator = operator
         self.sensor_id = sensor_id
@@ -52,24 +55,29 @@ class SimpleRule(IndependentRule):
     last_violated = False
     threshold: float
 
-
     def is_violated(self, readings: list[float | None]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             # assume the value remained the same
             return self.last_violated
-        
+
         if self.operator == Operator.LESS:
             self.last_violated = reading < self.threshold
         else:
             self.last_violated = reading > self.threshold
-            
+
         return self.last_violated
-    
-    def __init__(self, priority: int, name: str, sensor_id: int, threshold: float, operator: Operator):
+
+    def __init__(
+        self,
+        priority: int,
+        name: str,
+        sensor_id: int,
+        threshold: float,
+        operator: Operator,
+    ):
         super().__init__(priority, name, sensor_id, operator)
         self.threshold = threshold
-
 
 
 class StepDifferenceRule(IndependentRule):
@@ -79,14 +87,13 @@ class StepDifferenceRule(IndependentRule):
     last_reading: float
     ready: bool = False
 
-
     def is_violated(self, readings: list[float | None]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             if not self.ready:
                 # we dont have a previous reading to compare against
                 return False
-            
+
             # assume the value remained the same, so a delta of 0, which might violate the rule
             if self.operator == Operator.LESS:
                 return 0 < self.step
@@ -103,12 +110,13 @@ class StepDifferenceRule(IndependentRule):
             if self.operator == Operator.LESS:
                 return delta < self.step
             else:
-                return  delta > self.step
-    
-    def __init__(self, priority: int, name: str, sensor_id: int, step: float, operator: Operator):
+                return delta > self.step
+
+    def __init__(
+        self, priority: int, name: str, sensor_id: int, step: float, operator: Operator
+    ):
         super().__init__(priority, name, sensor_id, operator)
         self.step = step
-
 
 
 class StatefulRule(IndependentRule):
@@ -118,12 +126,11 @@ class StatefulRule(IndependentRule):
     sensor_id: int
     operator: Operator
 
-
     def is_violated(self, readings: list[float | None]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             # assume the value remained the same
-            if self.consecutive_violations > 0: # this is equivalent to last_violated
+            if self.consecutive_violations > 0:  # this is equivalent to last_violated
                 self.consecutive_violations += 1
         else:
             violated = False
@@ -131,17 +138,26 @@ class StatefulRule(IndependentRule):
                 violated = reading < self.threshold
             else:
                 violated = reading > self.threshold
-            
-            if violated: self.consecutive_violations += 1
-            else:        self.consecutive_violations = 0
-            
+
+            if violated:
+                self.consecutive_violations += 1
+            else:
+                self.consecutive_violations = 0
+
         return self.consecutive_violations >= self.threshold
-    
-    def __init__(self, priority: int, name: str, sensor_id: int, threshold: float, max_violations: int, operator: Operator):
+
+    def __init__(
+        self,
+        priority: int,
+        name: str,
+        sensor_id: int,
+        threshold: float,
+        max_violations: int,
+        operator: Operator,
+    ):
         super().__init__(priority, name, sensor_id, operator)
         self.threshold = threshold
         self.max_violations = max_violations
-
 
 
 # Logical rules will have sth like is_violated(operand_1_outcome, operand_2_outcome)
@@ -155,7 +171,7 @@ class LogicalCorrelationRule(Rule):
         if self.logic == Logic.AND:
             return operand_1_result and operand_2_result
         return operand_1_result or operand_2_result
-    
+
     # logic operator and the two operands, the ids of the rules it depend on
     def __init__(self, priority: int, name: str, logic: Logic, op1: int, op2: int):
         super().__init__(priority, name)
