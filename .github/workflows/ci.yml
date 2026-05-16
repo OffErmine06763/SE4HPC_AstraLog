@@ -42,8 +42,7 @@ jobs:
       - name: Install apptainer
         run: |
           sudo apt-get update && sudo apt-get install -y curl rpm2cpio cpio
-          curl -s https://raw.githubusercontent.com/apptainer/apptainer/main/tools/install-unprivileged.sh
-          bash -s - install-dir
+          curl -s https://raw.githubusercontent.com/apptainer/apptainer/main/tools/install-unprivileged.sh | bash -s - install-dir
           echo "$HOME/.local/apptainer/bin" >> "$GITHUB_PATH"
       - name: Build container image
         run: |
