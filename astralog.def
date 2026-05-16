@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: python:3.11.8-slim-bookworm
+
+%files
+  requirements.txt /app/requirements.txt
+  src /app/src
+  
+%post
+  apt-get update && apt-get install git -y && apt-get clean autoclean
+  python -m venv /app/venv
+  cd /app
+  /app/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+%environment
+  export PATH=/app/venv/bin:$PATH
+
+%runscript
+  /app/venv/bin/python -m src.astralog_collector --mode count --limit 100
