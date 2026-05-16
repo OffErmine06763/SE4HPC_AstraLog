@@ -12,12 +12,12 @@ permissions:
 jobs:
   validate:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.11.8
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11.8"
     - name: Install dependencies
@@ -36,16 +36,16 @@ jobs:
         pytest
   containerize:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install apptainer
         run: |
           sudo apt-get update && sudo apt-get install -y curl rpm2cpio cpio
           curl -s https://raw.githubusercontent.com/apptainer/apptainer/main/tools/install-unprivileged.sh | bash -s - install-dir
-          echo "$HOME/.local/apptainer/bin" >> "$GITHUB_PATH"
       - name: Build container image
         run: |
+          export PATH="$HOME/.local/apptainer/bin:$PATH"
           apptainer build astralog.sif astralog.def
       - name: Save container image as artifact
         uses: actions/upload-artifact@v4
