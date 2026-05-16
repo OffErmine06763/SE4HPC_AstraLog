@@ -38,14 +38,12 @@ jobs:
     needs: validate
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Install apptainer
-        run: |
-          sudo apt-get update && sudo apt-get install -y curl rpm2cpio cpio
-          curl -s https://raw.githubusercontent.com/apptainer/apptainer/main/tools/install-unprivileged.sh | bash -s - install-dir
+      - uses: actions/checkout@v2
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
       - name: Build container image
         run: |
-          export PATH="$HOME/.local/apptainer/bin:$PATH"
           apptainer build astralog.sif astralog.def
       - name: Save container image as artifact
         uses: actions/upload-artifact@v4
