@@ -1,2 +1,6 @@
 out/*
-src/__pycache__/*
+
+# cache
+__pycache__/
+*.py[codz]
+*$py.class
