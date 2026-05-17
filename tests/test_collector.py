@@ -56,4 +56,4 @@ def test_correct_directory_naming():
     
     # Check if the folder exists and matches our constant
     assert os.path.isdir(OUTPUT_DIR)
-    assert OUTPUT_DIR == "output_collector"
+    assert OUTPUT_DIR == "collector_output"
