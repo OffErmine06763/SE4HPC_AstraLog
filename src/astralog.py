@@ -1,9 +1,9 @@
-from data_reader import DataReader, DataReaderType
-from utils import get_key, FrequencyMeter, TimestampData, SensorReading
-from data_filter import validate_sensor_data_json, validate_sensor_data_csv
-from batch_manager import BatchManager
-from batch_analyzer import BatchAnalyzer
-from config_reader import parse_sensors_config, parse_rules_config
+from src.data_reader import DataReader, DataReaderType
+from src.utils import get_key, FrequencyMeter, TimestampData, SensorReading
+from src.data_filter import validate_sensor_data_json, validate_sensor_data_csv
+from src.batch_manager import BatchManager
+from src.batch_analyzer import BatchAnalyzer
+from src.config_reader import parse_sensors_config, parse_rules_config
 
 import os
 import threading

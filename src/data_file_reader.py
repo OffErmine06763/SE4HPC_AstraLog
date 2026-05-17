@@ -1,4 +1,4 @@
-from data_reader import DataReader, DataReaderType
+from src.data_reader import DataReader, DataReaderType
 
 from io import TextIOWrapper, StringIO
 import csv

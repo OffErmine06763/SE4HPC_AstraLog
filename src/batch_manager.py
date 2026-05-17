@@ -1,4 +1,4 @@
-from utils import TimestampData, SensorReading
+from src.utils import TimestampData, SensorReading
 
 import time
 import os

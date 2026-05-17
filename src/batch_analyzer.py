@@ -1,7 +1,7 @@
-from rule import Rule, IndependentRule, LogicalCorrelationRule
+from src.rule import Rule, IndependentRule, LogicalCorrelationRule
 
 from io import TextIOWrapper
-from utils import TimestampData
+from src.utils import TimestampData
 from typing import cast
 from queue import Queue
 
