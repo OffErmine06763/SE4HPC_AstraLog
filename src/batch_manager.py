@@ -53,10 +53,8 @@ class BatchManager:
             # but we can reuse those allocated at previous batches.
             if self._ts_count == len(self._cache):
                 # add entry to cache for the new timestamp, initialized with None
-                new_entry = TimestampData()
-                new_entry.ts = data.ts
-                new_entry.readings = [None] * sensor_count
-                self._cache.append(new_entry)
+                readings = [None] * sensor_count
+                self._cache.append(TimestampData(data.ts, readings))
             else:
                 # reuse an old slot
                 self._cache[self._ts_count].ts = data.ts
@@ -124,12 +122,9 @@ class BatchManager:
         reader = line_reader(content)
 
         while True:
-            data = TimestampData()
-            
             ts = next(reader, None)
             if ts is None:
                 break
-            data.ts = ts
 
             readings = next(reader, None)
             if readings is None:
@@ -142,8 +137,8 @@ class BatchManager:
                 print("WARNING BatchManager: this shouldn't happen")
                 break
 
-            data.readings = [float(x) if x != "" else None for x in readings_list]
-            batch_data.append(data)
+            readings = [float(x) if x != "" else None for x in readings_list]
+            batch_data.append(TimestampData(ts, readings))
         
         
         return batch_data

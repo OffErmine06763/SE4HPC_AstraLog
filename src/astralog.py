@@ -105,13 +105,13 @@ class AstraLog:
             # TODO: i dont like the fact that we have to run this if at every iteration
             # tho i dont like the idea of moving this in the reader, i'd rather have the reader
             # to be a generic source of data, you know division of responsibilities
-            data: SensorReading
+            data: SensorReading | None
             if self._data_reader.type() == DataReaderType.STREAM:
-                valid, data = validate_sensor_data_json(data_raw, self._sensor_ids)
+                data = validate_sensor_data_json(data_raw, self._sensor_ids)
             else:
-                valid, data = validate_sensor_data_csv(data_raw, self._sensor_ids)
+                data = validate_sensor_data_csv(data_raw, self._sensor_ids)
 
-            if not valid:
+            if data is None:  # data is invalid
                 continue
 
             # print(data_json)
