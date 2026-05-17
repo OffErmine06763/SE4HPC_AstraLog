@@ -1,5 +1,4 @@
 out/*
-src/__pycache__/*
-tests/__pycache__/*
+**/__pycache__/*
 .pytest_case/*
 .coverage

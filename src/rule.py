@@ -135,7 +135,7 @@ class StatefulRule(IndependentRule):
             if violated: self.consecutive_violations += 1
             else:        self.consecutive_violations = 0
             
-        return self.consecutive_violations >= self.threshold
+        return self.consecutive_violations >= self.max_violations
     
     def __init__(self, priority: int, name: str, sensor_id: int, threshold: float, max_violations: int, operator: Operator):
         super().__init__(priority, name, sensor_id, operator)
