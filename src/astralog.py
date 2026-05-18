@@ -146,7 +146,7 @@ class AstraLog:
         
         print(f"AstraLog: found {len(rules)} rules")
 
-        ok = self._batch_analyzer.load_rules(rules_filename, rules)
+        ok = self._batch_analyzer.load_rules(rules)
         if not ok:
             return False
 
