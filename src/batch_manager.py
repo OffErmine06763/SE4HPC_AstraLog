@@ -20,23 +20,37 @@ class BatchManager:
     # NOTE: a batch could contain half a timestamp, so we omit the last received
     # timestamp and put it in the next batch
 
-    _count = 0
-    _ts_count = 0
-    _cache: list[TimestampData] = []
-    _current_ts: str = ""
+    _count: int
+    _ts_count: int
+    _cache: list[TimestampData]
+    _current_ts: str
 
-    _sequence_number = 0
-    _sequence_period = 1000
+    _sequence_number: int
+    _sequence_period: int
 
     MODE_SIZE = 1
     MODE_TIME = 2
 
-    _mode = MODE_SIZE
+    _mode: int
     # either batch size or time
-    _mode_parameter: int = 100
-    _last_flush_time = time.perf_counter()
+    _mode_parameter: int
+    _last_flush_time: float
 
     output_dir: str
+
+
+    def __init__(self):
+        self._mode = self.MODE_SIZE
+        self._mode_parameter = 100
+        self._last_flush_time = time.perf_counter()
+
+        self._sequence_number = 0
+        self._sequence_period = 1000
+        
+        self._count = 0
+        self._ts_count = 0
+        self._cache = []
+        self._current_ts = ""
 
 
     # TODO: this requires extensive testing, like we have to trigger the appends after the
