@@ -12,23 +12,41 @@ from queue import Queue
 
 # fu GIL
 class AstraLog:
-    _data_reader: DataReader | None = None
-    _batch_manager = BatchManager()
-    _batch_analyzer = BatchAnalyzer()
-    _sensor_ids: dict[str, int] = dict()
-    _sensor_names: list[str] = []
+    _data_reader: DataReader | None
+    _batch_manager: BatchManager
+    _batch_analyzer: BatchAnalyzer
+    _sensor_ids: dict[str, int]
+    _sensor_names: list[str]
 
-    _reading_freq: float = 1
-    _sensor_count: int = 0
+    _reading_freq: float
+    _sensor_count: int
 
-    _freq_meter = FrequencyMeter()
+    _freq_meter: FrequencyMeter
 
     _analysis_thread: threading.Thread
-    _stop_analysis_event = threading.Event()
+    _stop_analysis_event: threading.Event
     # this is synchronized
-    _batches_ready: Queue[str] = Queue()
+    _batches_ready: Queue[str]
 
     ERASE_BATCHES = True
+
+
+    def __init__(self):
+        self._data_reader = None
+        self._batch_analyzer = BatchAnalyzer()
+        self._batch_manager = BatchManager()
+        self._sensor_ids = dict()
+        self._sensor_names = []
+
+        self._reading_freq = 1.0
+        self._sensor_count = 0
+
+        self._freq_meter = FrequencyMeter()
+
+        self._stop_analysis_event = threading.Event()
+        self._batches_ready = Queue()
+
+        self._freq_meter.on_hz = self.on_hz
 
 
     def analysis_loop(self):
@@ -174,7 +192,7 @@ class AstraLog:
             # if this happens the batch manager won't be able to put any data
             # in the batch files, cause they have to be rounded to a timestamp
             print("WARNING AstraLog: sensor count greater than batch size")
-        if mode == BatchManager.MODE_TIME and 1 / param > self._freq_meter:
+        if mode == BatchManager.MODE_TIME and 1 / param > self._reading_freq:
             # this shouldn't be a big deal, but we still generate some empty batches
             print("WARNING AstraLog: batch frequency higher than sensor data generation frequency")
 
@@ -187,9 +205,6 @@ class AstraLog:
         self._batch_analyzer.set_alarms_output_file(filename)
     def set_valid_output_file(self, filename: str):
         self._batch_analyzer.set_valid_output_file(filename)
-
-    def __init__(self):
-        self._freq_meter.on_hz = self.on_hz
 
 
     def on_hz(self, hz):
