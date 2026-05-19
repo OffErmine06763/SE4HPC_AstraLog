@@ -1,6 +1,8 @@
 out/*
 output_collector/*
 
+*.sif
+
 # cache
 __pycache__/
 *.py[codz]
