@@ -11,7 +11,6 @@ import time
 from queue import Queue
 
 
-# fu GIL
 class AstraLog:
     _data_reader: DataReader | None
     _batch_manager: BatchManager
