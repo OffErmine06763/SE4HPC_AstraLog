@@ -1,2 +1,9 @@
 out/*
-src/__pycache__/*
+output_collector/*
+
+*.sif
+
+# cache
+__pycache__/
+*.py[codz]
+*$py.class

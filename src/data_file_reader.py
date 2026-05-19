@@ -8,11 +8,10 @@ class DataFileReader(DataReader):
     _filename: str = ""
     _file: TextIOWrapper
 
-    EXPECTED_COLUMNS = [ "timestamp", "sensor_id", "value", "priority" ]
-
+    EXPECTED_COLUMNS = ["timestamp", "sensor_id", "value", "priority"]
 
     def read_one(self) -> tuple[bool, str]:
-        line: str = self._file.readline() # includes the \n
+        line: str = self._file.readline()  # includes the \n
         line = line.strip()
         if line == "":
             print("DataFileReader: EOF")
@@ -20,11 +19,10 @@ class DataFileReader(DataReader):
 
         return True, line
 
-
     def set_data_file(self, filename: str):
         self._filename = filename
 
-    def open(self) -> bool: 
+    def open(self) -> bool:
         try:
             self._file = open(self._filename, "r")
 
@@ -37,12 +35,16 @@ class DataFileReader(DataReader):
             reader = csv.reader(StringIO(header))
             row = next(reader, None)
             if row is None:
-                print("DataFileReader: this shouldn't happen") # means that header is empty, checked before
+                print(
+                    "DataFileReader: this shouldn't happen"
+                )  # means that header is empty, checked before
                 return False
 
             for i in range(4):
                 if row[i] != DataFileReader.EXPECTED_COLUMNS[i]:
-                    print(f"DataFileReader: invalid csv schema, expected {DataFileReader.EXPECTED_COLUMNS}")
+                    print(
+                        f"DataFileReader: invalid csv schema, expected {DataFileReader.EXPECTED_COLUMNS}"
+                    )
                     return False
 
         except FileNotFoundError:
@@ -56,10 +58,10 @@ class DataFileReader(DataReader):
 
     def __str__(self) -> str:
         if self._filename is None:
-           return "DataFileReader (no file)"
+            return "DataFileReader (no file)"
         else:
-           return f"DataFileReader ({self._filename})"
-        
+            return f"DataFileReader ({self._filename})"
+
     @staticmethod
     def type() -> DataReaderType:
         return DataReaderType.FILE
