@@ -49,12 +49,7 @@ def validate_sensor_data_csv(
         return False, SensorReading()
 
     for i in range(4):
-        if (
-            len(row[i]) == 0
-            or row[i] == "CORRUPT"
-            or row[i] == "ERR"
-            or row[i] == "SYSTEM_HALT_ERR"
-        ):
+        if (len(row[i]) == 0 or row[i] in ["CORRUPT", "ERR",  "SYSTEM_HALT_ERR"]):
             return False, SensorReading()
 
     reading = SensorReading()
