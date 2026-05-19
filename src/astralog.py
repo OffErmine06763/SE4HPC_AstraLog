@@ -25,10 +25,13 @@ class AstraLog:
 
     _analysis_thread: threading.Thread
     _stop_analysis_event: threading.Event
+    _data_reader_loop_finished_event: threading.Event
+
     # this is synchronized
     _batches_ready: Queue[str]
 
     ERASE_BATCHES = True
+    BATCH_QUEUE_LOOP_TIMEOUT = 2
 
 
     def __init__(self):
@@ -44,6 +47,7 @@ class AstraLog:
         self._freq_meter = FrequencyMeter()
 
         self._stop_analysis_event = threading.Event()
+        self._data_reader_loop_finished_event = threading.Event()
         self._batches_ready = Queue()
 
         self._freq_meter.on_hz = self.on_hz
@@ -52,10 +56,16 @@ class AstraLog:
     def analysis_loop(self):
         print("AstraLog - Analysis: starting")
 
-        while not self._stop_analysis_event.is_set():
+        while True:
+            if self._stop_analysis_event.is_set():
+                break
+
+            if self._data_reader_loop_finished_event.is_set() and self._batches_ready.empty():
+                break
+
             batch_filename: str
             try:
-                batch_filename = self._batches_ready.get(timeout=2)
+                batch_filename = self._batches_ready.get(timeout=self.BATCH_QUEUE_LOOP_TIMEOUT)
             except:
                 continue # every 5 seconds check if this worker thread should quit
 
@@ -110,9 +120,13 @@ class AstraLog:
         while True:
             # handle execution metrics and keyboard
             self._freq_meter.update()
-            key = get_key()
-            if key and key.lower() == "q":
-                break
+            try:
+                key = get_key()
+                if key and key.lower() == "q":
+                    self._stop_analysis_event.set()
+                    break
+            except:
+                print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
             valid, data_raw = self._data_reader.read_one()
@@ -139,7 +153,13 @@ class AstraLog:
                 self._batches_ready.put(filename)
 
         self._data_reader.close()
-        self._stop_analysis_event.set()
+
+        # flush what is left in the batch manager
+        filename = self._batch_manager.get_flush_filename()
+        self._batch_manager.flush(filename, full=True) 
+        self._batches_ready.put(filename)
+
+        self._data_reader_loop_finished_event.set()
         self._analysis_thread.join()
         self._batch_analyzer.deinit()
 

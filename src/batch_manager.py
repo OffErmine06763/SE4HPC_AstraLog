@@ -53,6 +53,12 @@ class BatchManager:
         self._current_ts = ""
 
 
+    def get_flush_filename(self) -> str:
+        seq_num = self._sequence_number % self._sequence_period
+        self._sequence_number = (self._sequence_number + 1) % self._sequence_period
+        return os.path.join(self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt")
+
+
     # TODO: this requires extensive testing, like we have to trigger the appends after the
     # initial warm-up, and also make sure the reuse of existing cache cells works correctly
     def add_to_batch(self, data: SensorReading, sensor_count: int) -> str:
@@ -92,9 +98,7 @@ class BatchManager:
                 flush = True
         
         if flush:
-            seq_num = self._sequence_number % self._sequence_period
-            self._sequence_number = (self._sequence_number + 1) % self._sequence_period
-            filename = os.path.join(self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt")
+            filename = self.get_flush_filename()
             self.flush(filename)
             return filename
 

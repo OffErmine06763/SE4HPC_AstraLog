@@ -1,7 +1,13 @@
 import pytest
-from src.rule import SimpleRule, LogicalCorrelationRule, Operator, Logic
+from src.rule import Rule, SimpleRule, LogicalCorrelationRule, Operator, Logic
 from src.batch_analyzer import BatchAnalyzer
 from src.utils import TimestampData
+
+
+@pytest.fixture(autouse=True)
+def reset_rule_ids():
+    """Reset class-level IDs so tests are deterministic."""
+    Rule._next_id = 0
 
 
 def complex_rules():
@@ -24,7 +30,6 @@ def timestamp_data():
         TimestampData("time4", [0.4, 0.6, 0.4, 0.6]),
         TimestampData("time5", [0.6, 0.4, 0.4, 0.6])
     ]
-
 
 
 def test_analyzing_batched_data(tmp_path):
