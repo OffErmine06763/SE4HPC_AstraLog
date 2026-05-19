@@ -1,4 +1,9 @@
 out/*
-**/__pycache__/*
 .pytest_case/*
 .coverage
+*.sif
+
+# cache
+__pycache__/
+*.py[codz]
+*$py.class

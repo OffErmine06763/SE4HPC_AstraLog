@@ -4,6 +4,7 @@ import json
 from io import StringIO
 import csv
 
+
 # returns None if data is invalid, otherwise returns SensorReading object
 def validate_sensor_data_json(data_json: str, sensor_ids: dict[str, int]) -> SensorReading | None:
     try:
@@ -28,9 +29,10 @@ def validate_sensor_data_json(data_json: str, sensor_ids: dict[str, int]) -> Sen
         # reading.priority = priority
 
         return SensorReading(ts, id, value)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         return None
-    
+
+
 # Tho unspecified, the csv lines appear to be missing fields, contain CORRUPT, SYSTEM_HALT_ERR or ERR
 # i think that a blacklist is still the most convenient choice in this case
 # returns None if invalid data, otherwise SensorReading object
@@ -38,10 +40,11 @@ def validate_sensor_data_csv(data_csv: str, sensor_ids: dict[str, int]) -> Senso
     reader = csv.reader(StringIO(data_csv))
     row = next(reader, None)
     if row is None:
-        print("this shouldn't happen") # means that row is empty, but DataFileReader should signal EOF and AstraLog should quit
+        # means that row is empty, but DataFileReader should signal EOF and AstraLog should quit
+        print("this shouldn't happen")
         return None
 
-    for i in range(4):   
+    for i in range(4):
         if len(row[i]) == 0 or row[i] == "CORRUPT" or row[i] == "ERR" or row[i] == "SYSTEM_HALT_ERR":
             return None
 

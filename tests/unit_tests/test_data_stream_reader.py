@@ -1,4 +1,3 @@
-import pytest
 from queue import Queue
 from unittest.mock import Mock, patch
 from src.data_reader import DataReaderType
@@ -34,16 +33,16 @@ def test_data_stream_reader_init():
 
 def test_data_stream_reader_open_success():
     reader = DataStreamReader()
-    
+
     client = Mock()
     client.connect.return_value = 0
 
     with patch("src.data_stream_reader.mqtt.Client", return_value=client):
         result = reader.open()
 
-    assert result == True
-    assert reader._connected == True
-    
+    assert result is True
+    assert reader._connected
+
     # Verify calls to MQTT client
     client.username_pw_set.assert_called_once()
     client.tls_set_context.assert_called_once()
@@ -54,24 +53,24 @@ def test_data_stream_reader_open_success():
 
 def test_data_stream_reader_open_failure():
     reader = DataStreamReader()
-    
+
     client = Mock()
     client.connect.return_value = 1  # failure to connect
 
     with patch("src.data_stream_reader.mqtt.Client", return_value=client):
         result = reader.open()
 
-    assert result == False
-    assert reader._connected == False
-    
+    assert result is False
+    assert not reader._connected
+
     # Verify calls to MQTT client
     client.subscribe.assert_not_called()
     client.loop_start.assert_not_called()
-    
+
 
 def test_data_stream_reader_open_version2_not_supported():
     reader = DataStreamReader()
-    
+
     client = Mock()
     client.connect.return_value = 0
 
@@ -83,8 +82,8 @@ def test_data_stream_reader_open_version2_not_supported():
 
         assert client_class.call_count == 2
 
-    assert result == True
-    assert reader._connected == True
+    assert result is True
+    assert reader._connected
 
     # Verify calls to MQTT client
     client.username_pw_set.assert_called_once()
@@ -96,7 +95,7 @@ def test_data_stream_reader_open_version2_not_supported():
 
 def test_data_stream_reader_close():
     reader = DataStreamReader()
-    
+
     client = Mock()
     client.connect.return_value = 0
 
@@ -105,8 +104,8 @@ def test_data_stream_reader_close():
 
     reader.close()
 
-    assert reader._connected == False
-    
+    assert not reader._connected
+
     # Verify calls to MQTT client
     client.loop_stop.assert_called_once()
     client.disconnect.assert_called_once()
@@ -133,7 +132,7 @@ def test_data_stream_reader_read_one_success():
 
     ok, payload = reader.read_one()
 
-    assert ok == True
+    assert ok
     assert payload == "payload1"
 
 
@@ -142,6 +141,6 @@ def test_data_stream_reader_read_one_empty_queue():
     reader._message_queue = Queue()
 
     ok, payload = reader.read_one()
-    
-    assert ok == False
+
+    assert not ok
     assert payload == ""

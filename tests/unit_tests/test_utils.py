@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import Mock, patch
 from src.utils import FrequencyMeter, TimestampData, SensorReading
 
@@ -20,9 +19,9 @@ def test_frequency_meter_init():
     freq_meter = FrequencyMeter()
     with patch('src.utils.time.perf_counter', return_value=123.0):
         freq_meter.init()
-    
+
     assert freq_meter.start == 123.0
-        
+
 
 def test_frequency_counter_incr():
     freq_meter = FrequencyMeter()
@@ -33,7 +32,7 @@ def test_frequency_counter_incr():
 
     with patch('src.utils.time.perf_counter', return_value=4.9):
         freq_meter.update()
-    
+
     assert freq_meter.count == 1
     freq_meter.on_hz.assert_not_called()
 
@@ -49,7 +48,7 @@ def test_frequency_meter_counter_reset():
         freq_meter.update()
     with patch('src.utils.time.perf_counter', return_value=10.0):
         freq_meter.update()
-    
+
     assert freq_meter.count == 0
     freq_meter.on_hz.assert_called_once_with(0.2)
 
@@ -67,6 +66,7 @@ def test_timestamp_data_set():
 # -------------
 # SensorReading
 # -------------
+
 
 def test_sensor_reading_set():
     sr = SensorReading('ts1', 1, 0.4)

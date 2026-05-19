@@ -60,7 +60,7 @@ def test_parse_rules_simple_rule(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == True
+    assert ok
     assert len(rules) == 1
     assert isinstance(rules[0], SimpleRule)
     assert rules[0].name == "R1"
@@ -87,7 +87,7 @@ def test_parse_rules_step_difference_rule(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == True
+    assert ok
     assert len(rules) == 1
     assert isinstance(rules[0], StepDifferenceRule)
     assert rules[0].name == "R2"
@@ -115,7 +115,7 @@ def test_parse_rules_stateful_rule(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == True
+    assert ok
     assert len(rules) == 1
     assert isinstance(rules[0], StatefulRule)
     assert rules[0].name == "R3"
@@ -158,7 +158,7 @@ def test_parse_rules_logical_correlation_rule(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == True
+    assert ok
     assert len(rules) == 3
     assert isinstance(rules[2], LogicalCorrelationRule)
     assert rules[2].name == "R4"
@@ -170,7 +170,7 @@ def test_parse_rules_logical_correlation_rule(tmp_path):
 def test_parse_rules_file_not_found():
     ok, rules = parse_rules_config("does_not_exist.json", SENSOR_IDS)
 
-    assert ok == False
+    assert not ok
     assert rules == []
 
 
@@ -182,7 +182,7 @@ def test_parse_rules_invalid_json(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == False
+    assert not ok
     assert rules == []
 
 
@@ -190,7 +190,7 @@ def test_parse_rules_exception_missing_field(tmp_path):
     data = [
         {
             "rule_id": "R4",
-            "conditions": ["R1", "R2"], 
+            "conditions": ["R1", "R2"],
             "priority": "HIGH"
         }
     ]
@@ -200,16 +200,15 @@ def test_parse_rules_exception_missing_field(tmp_path):
 
     ok, rules = parse_rules_config(str(file), SENSOR_IDS)
 
-    assert ok == False
+    assert not ok
     assert rules == []
-
 
 
 def test_parse_rules_exception_thrown():
     with patch("builtins.open", side_effect=PermissionError):
         ok, rules = parse_rules_config("rules.json", SENSOR_IDS)
 
-    assert ok == False
+    assert not ok
     assert rules == []
 
 
@@ -218,10 +217,10 @@ def test_parse_rules_exception_thrown():
 # --------------------
 
 def test_parse_sensors_valid_list(tmp_path):
-    data = { 
+    data = {
         "sensors": [
-            {"id": "id1", "sampling_rate": "1Hz", "unit": "Celsius"},    
-            {"id": "id2", "sampling_rate": "1Hz", "unit": "Celsius"}    
+            {"id": "id1", "sampling_rate": "1Hz", "unit": "Celsius"},
+            {"id": "id2", "sampling_rate": "1Hz", "unit": "Celsius"}
         ]
     }
 
@@ -235,8 +234,8 @@ def test_parse_sensors_valid_list(tmp_path):
 
     assert count == 2
     assert freq == 1.0
-    assert sensor_ids == { "id1": 0, "id2": 1 }
-    assert sensor_names == [ "id1", "id2" ]
+    assert sensor_ids == {"id1": 0, "id2": 1}
+    assert sensor_names == ["id1", "id2"]
 
 
 def test_parse_sensors_file_not_found():
@@ -267,7 +266,7 @@ def test_parse_sensors_invalid_yaml(tmp_path):
 
 
 def test_parse_sensors_missing_fields(tmp_path):
-    data = { 
+    data = {
         "sensors": [
             {"id": "id1", "unit": "Celsius"}
         ]

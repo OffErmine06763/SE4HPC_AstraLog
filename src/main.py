@@ -9,7 +9,8 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AstraLog Telemetry Collector")
-    # TODO: bring back those command line args and add all the other parameters (sensor and rule filenames, output filename, batch output dir, stream or file mode (along with data file))
+    # TODO: bring back those command line args and add all the other parameters (sensor and rule filenames,
+    # output filename, batch output dir, stream or file mode (along with data file))
     # parser.add_argument("--mode", choices=["count", "time"], required=True, help="Accumulation mode")
     # parser.add_argument("--limit", type=int, required=True, help="Messages count or Time interval in ms")
     # parser.add_argument("--seq-period", type=int, default=100, help="Sequence number period (default: 100)")
