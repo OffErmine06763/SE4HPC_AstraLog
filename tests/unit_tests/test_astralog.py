@@ -85,3 +85,27 @@ def test_astralog_on_hz(capsys):
     expected_output = "AstraLog: 0.50 iterations/sec FALLING BEHIND (target = 1.0)\n"
     assert expected_output == captured_output
 
+
+# ------------------------------------
+# Checking the failure of start method
+# ------------------------------------
+
+def test_astralog_start_fails_without_data_reader(capsys):
+    alog = AstraLog()
+    alog.start()
+
+    output = capsys.readouterr().out
+    assert "AstraLog: specify a sensor data source using AstraLog.set_data_source" \
+        in output
+    
+
+def test_atralog_start_fails_without_sensors(capsys):
+    alog = AstraLog()
+    alog.set_data_source(Mock())
+
+    alog.start()
+
+    output = capsys.readouterr().out
+
+    assert "AstraLog: provide sensors configuration using AstraLog.set_sensors" \
+        in output

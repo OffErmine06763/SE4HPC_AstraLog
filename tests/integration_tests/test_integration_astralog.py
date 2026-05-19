@@ -107,6 +107,21 @@ def test_analysis_loop_waits_for_batch(astralog, tmp_path, valid_output_file, al
     assert_files_equal(EXPECTED_VALID_FILE, valid_output_file)
 
 
+
+def test_analysis_loop_stops_on_event(astralog, tmp_path, valid_output_file, alarms_output_file):
+    analysis_thread = threading.Thread(target=astralog.analysis_loop)
+    analysis_thread.start()
+
+    time.sleep(0.5)  # Loop will have to busy wait
+
+    astralog._stop_analysis_event.set()
+    analysis_thread.join(timeout=15.0)
+
+    astralog._batch_analyzer.deinit()
+
+    assert not analysis_thread.is_alive()  # thread stopped (not because of timeout)
+
+
 def test_analysis_loop_does_not_delete_batch(astralog, tmp_path, valid_output_file, alarms_output_file):
     AstraLog.ERASE_BATCHES = False
     
@@ -167,3 +182,4 @@ def test_astralog_finishes_non_flushed(astralog, valid_output_file, alarms_outpu
     
     assert_files_equal(EXPECTED_ALARM_FILE, alarms_output_file)
     assert_files_equal(EXPECTED_VALID_FILE, valid_output_file)
+
