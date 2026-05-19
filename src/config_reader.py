@@ -1,12 +1,4 @@
-from rule import (
-    Rule,
-    StatefulRule,
-    StepDifferenceRule,
-    LogicalCorrelationRule,
-    SimpleRule,
-    Logic,
-    Operator,
-)
+from src.rule import Rule, StatefulRule, StepDifferenceRule, LogicalCorrelationRule, SimpleRule, Logic, Operator
 
 import yaml
 import json

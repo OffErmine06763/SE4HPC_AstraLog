@@ -1,9 +1,9 @@
-from data_reader import DataReader, DataReaderType
-from utils import get_key, FrequencyMeter, TimestampData, SensorReading
-from data_filter import validate_sensor_data_json, validate_sensor_data_csv
-from batch_manager import BatchManager
-from batch_analyzer import BatchAnalyzer
-from config_reader import parse_sensors_config, parse_rules_config
+from src.data_reader import DataReader, DataReaderType
+from src.utils import get_key, FrequencyMeter, TimestampData, SensorReading
+from src.data_filter import validate_sensor_data_json, validate_sensor_data_csv
+from src.batch_manager import BatchManager
+from src.batch_analyzer import BatchAnalyzer
+from src.config_reader import parse_sensors_config, parse_rules_config
 
 import os
 import threading
@@ -11,25 +11,41 @@ import time
 from queue import Queue
 
 
-# fu GIL
 class AstraLog:
-    _data_reader: DataReader | None = None
-    _batch_manager = BatchManager()
-    _batch_analyzer = BatchAnalyzer()
-    _sensor_ids: dict[str, int] = dict()
-    _sensor_names: list[str] = []
+    _data_reader: DataReader | None
+    _batch_manager: BatchManager
+    _batch_analyzer: BatchAnalyzer
+    _sensor_ids: dict[str, int]
+    _sensor_names: list[str]
 
-    _reading_freq: float = 1
-    _sensor_count: int = 0
+    _reading_freq: float
+    _sensor_count: int
 
-    _freq_meter = FrequencyMeter()
+    _freq_meter: FrequencyMeter
 
     _analysis_thread: threading.Thread
-    _stop_analysis_event = threading.Event()
+    _stop_analysis_event: threading.Event
     # this is synchronized
-    _batches_ready: Queue[str] = Queue()
+    _batches_ready: Queue[str]
 
     ERASE_BATCHES = True
+
+    def __init__(self):
+        self._data_reader = None
+        self._batch_analyzer = BatchAnalyzer()
+        self._batch_manager = BatchManager()
+        self._sensor_ids = dict()
+        self._sensor_names = []
+
+        self._reading_freq = 1.0
+        self._sensor_count = 0
+
+        self._freq_meter = FrequencyMeter()
+
+        self._stop_analysis_event = threading.Event()
+        self._batches_ready = Queue()
+
+        self._freq_meter.on_hz = self.on_hz
 
     def analysis_loop(self):
         print("AstraLog - Analysis: starting")
@@ -113,13 +129,13 @@ class AstraLog:
             # TODO: i dont like the fact that we have to run this if at every iteration
             # tho i dont like the idea of moving this in the reader, i'd rather have the reader
             # to be a generic source of data, you know division of responsibilities
-            data: SensorReading
+            data: SensorReading | None
             if self._data_reader.type() == DataReaderType.STREAM:
-                valid, data = validate_sensor_data_json(data_raw, self._sensor_ids)
+                data = validate_sensor_data_json(data_raw, self._sensor_ids)
             else:
-                valid, data = validate_sensor_data_csv(data_raw, self._sensor_ids)
+                data = validate_sensor_data_csv(data_raw, self._sensor_ids)
 
-            if not valid:
+            if data is None:  # data is invalid
                 continue
 
             # print(data_json)
@@ -154,7 +170,7 @@ class AstraLog:
 
         print(f"AstraLog: found {len(rules)} rules")
 
-        ok = self._batch_analyzer.load_rules(rules_filename, rules)
+        ok = self._batch_analyzer.load_rules(rules)
         if not ok:
             return False
 
@@ -184,7 +200,7 @@ class AstraLog:
             # if this happens the batch manager won't be able to put any data
             # in the batch files, cause they have to be rounded to a timestamp
             print("WARNING AstraLog: sensor count greater than batch size")
-        if mode == BatchManager.MODE_TIME and 1 / param > self._freq_meter:
+        if mode == BatchManager.MODE_TIME and 1 / param > self._reading_freq:
             # this shouldn't be a big deal, but we still generate some empty batches
             print(
                 "WARNING AstraLog: batch frequency higher than sensor data generation frequency"
@@ -200,9 +216,6 @@ class AstraLog:
 
     def set_valid_output_file(self, filename: str):
         self._batch_analyzer.set_valid_output_file(filename)
-
-    def __init__(self):
-        self._freq_meter.on_hz = self.on_hz
 
     def on_hz(self, hz):
         print(f"AstraLog: {hz:.2f} iterations/sec", end="")

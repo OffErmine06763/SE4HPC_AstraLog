@@ -1,6 +1,6 @@
 out/*
-output_collector/*
-
+.pytest_case/*
+.coverage
 *.sif
 
 # cache

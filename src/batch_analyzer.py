@@ -1,7 +1,7 @@
-from rule import Rule, IndependentRule, LogicalCorrelationRule
+from src.rule import Rule, IndependentRule, LogicalCorrelationRule
 
 from io import TextIOWrapper
-from utils import TimestampData
+from src.utils import TimestampData
 from typing import cast
 from queue import Queue
 
@@ -9,31 +9,43 @@ from queue import Queue
 def priority_to_str(p: int) -> str:
     if p == 0:
         return "LOW"
-    if p == 0:
+    if p == 1:
         return "MEDIUM"
     return "HIGH"
 
 
 class RuleNode:
-    num_pred: int = 0  # number of nodes this rule depends on (0, 1 or 2)
-    num_ready_pred: int = 0  # number of nodes this rule depends on that have been evaluated at this timestamp
-    id: int  # this LogicCorrelationRule id
-    next: list[
-        int
-    ] = []  # indexes of RuleNodes depending on this one (nodes are stored in a linear array)
+    num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
+    num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp
+    id: int               # this LogicCorrelationRule id
+    next: list[int]       # indexes of RuleNodes depending on this one (nodes are stored in a linear array)
+
+    def __init__(self, _id: int):
+        self.id = _id
+        self.num_pred = 0
+        self.num_ready_pred = 0
+        self.next = []
 
 
 class BatchAnalyzer:
     _valid_output_file: TextIOWrapper
     _alarms_output_file: TextIOWrapper
 
-    _sensor_id_to_name: list[str] = []
+    _sensor_id_to_name: list[str]
 
-    _rules: list[Rule] = []  # since rules have progressive ids, this can be indexed using rule.id
-    _indep_rules_id: list[int] = []  # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
-    _outcomes: list[bool] = []  # outcome of rule i (both index and id) at the current timestamp
-    _corr_rules_graph: list[RuleNode] = []  # graph nodes corresponding to correlation rules
-    _leaf_nodes_ind: list[int] = []  # indexes of graph nodes that do not depend on other correlation rules
+    _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
+    _indep_rules_id: list[int]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
+    _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
+    _corr_rules_graph: list[RuleNode]  # graph nodes corresponding to correlation rules
+    _leaf_nodes_ind: list[int]         # indexes of graph nodes that do not depend on other correlation rules
+
+    def __init__(self):
+        self._sensor_id_to_name = []
+        self._rules = []
+        self._indep_rules_id = []
+        self._outcomes = []
+        self._corr_rules_graph = []
+        self._leaf_nodes_ind = []
 
     def analyze(self, td: TimestampData) -> bool:
         all_ok = True
@@ -85,7 +97,7 @@ class BatchAnalyzer:
             if ok:
                 self.write_valid_data(td)
 
-    def load_rules(self, rules_filename: str, rules: list[Rule]) -> bool:
+    def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
         mapping: dict[int, int] = {}  # mapping from rule id to _corr_rules_graph index
@@ -94,8 +106,7 @@ class BatchAnalyzer:
             if isinstance(r, IndependentRule):
                 self._indep_rules_id.append(r.id)
             else:
-                node = RuleNode()
-                node.id = r.id
+                node = RuleNode(r.id)
                 self._corr_rules_graph.append(node)
                 mapping[r.id] = len(self._corr_rules_graph) - 1
 
@@ -154,15 +165,25 @@ class BatchAnalyzer:
             to_print.put(self._rules[rule.op1])
             to_print.put(self._rules[rule.op2])
 
+            sensor_names_to_print: list[str] = []
+            sensor_values_to_print: list[float] = []
+
             while not to_print.empty():
                 r = to_print.get()
                 if isinstance(r, IndependentRule):
-                    self._alarms_output_file.write(
-                        f"{self._sensor_id_to_name[r.sensor_id]};{td.readings[r.sensor_id]}"
-                    )
+                    sensor_names_to_print.append(self._sensor_id_to_name[r.sensor_id])
+                    sensor_values_to_print.append(td.readings[r.sensor_id])
                 elif isinstance(r, LogicalCorrelationRule):
                     to_print.put(self._rules[r.op1])
                     to_print.put(self._rules[r.op2])
+
+            for name in sensor_names_to_print[:-1]:
+                self._alarms_output_file.write(f"{name},")
+            self._alarms_output_file.write(f"{sensor_names_to_print[-1]};")
+
+            for value in sensor_values_to_print[:-1]:
+                self._alarms_output_file.write(f"{value},")
+            self._alarms_output_file.write(f"{sensor_values_to_print[-1]}")
 
         self._alarms_output_file.write("\n")
 

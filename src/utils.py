@@ -35,8 +35,8 @@ else:
 
 
 class FrequencyMeter:
-    count = 0
-    start = time.perf_counter()
+    count: int
+    start: float
     on_hz: Callable[[float], None]
 
     def update(self):
@@ -53,13 +53,25 @@ class FrequencyMeter:
     def init(self):
         self.start = time.perf_counter()
 
+    def __init__(self):
+        self.count = 0
+
 
 class TimestampData:
     ts: str = ""
     readings: list[float | None]
+
+    def __init__(self, _ts: str, _readings: list[float | None]):
+        self.ts = _ts
+        self.readings = _readings
 
 
 class SensorReading:
     ts: str
     id: int
     value: float
+
+    def __init__(self, _ts: str, _id: int, _value: float):
+        self.ts = _ts
+        self.id = _id
+        self.value = _value

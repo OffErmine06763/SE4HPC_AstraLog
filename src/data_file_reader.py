@@ -1,4 +1,4 @@
-from data_reader import DataReader, DataReaderType
+from src.data_reader import DataReader, DataReaderType
 
 from io import TextIOWrapper, StringIO
 import csv
@@ -30,21 +30,23 @@ class DataFileReader(DataReader):
             header = header.strip()
             if header == "":
                 print("DataFileReader: provided file is empty")
+                self._file.close()
                 return False
 
             reader = csv.reader(StringIO(header))
             row = next(reader, None)
             if row is None:
-                print(
-                    "DataFileReader: this shouldn't happen"
-                )  # means that header is empty, checked before
+                print("DataFileReader: this shouldn't happen")  # means that header is empty, checked before
+                self._file.close()
                 return False
+
+            if len(row) != 4:
+                print(f"DataFileReader: invalid csv chema, expected {DataFileReader.EXPECTED_COLUMNS}")
 
             for i in range(4):
                 if row[i] != DataFileReader.EXPECTED_COLUMNS[i]:
-                    print(
-                        f"DataFileReader: invalid csv schema, expected {DataFileReader.EXPECTED_COLUMNS}"
-                    )
+                    print(f"DataFileReader: invalid csv schema, expected {DataFileReader.EXPECTED_COLUMNS}")
+                    self._file.close()
                     return False
 
         except FileNotFoundError:
@@ -57,7 +59,7 @@ class DataFileReader(DataReader):
         pass
 
     def __str__(self) -> str:
-        if self._filename is None:
+        if self._filename is None or self._filename == "":
             return "DataFileReader (no file)"
         else:
             return f"DataFileReader ({self._filename})"

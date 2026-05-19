@@ -1,4 +1,4 @@
-from utils import TimestampData, SensorReading
+from src.utils import TimestampData, SensorReading
 
 import time
 import os
@@ -21,28 +21,41 @@ class BatchManager:
     # NOTE: a batch could contain half a timestamp, so we omit the last received
     # timestamp and put it in the next batch
 
-    _count = 0
-    _ts_count = 0
-    _cache: list[TimestampData] = []
-    _current_ts: str = ""
+    _count: int
+    _ts_count: int
+    _cache: list[TimestampData]
+    _current_ts: str
 
-    _sequence_number = 0
-    _sequence_period = 1000
+    _sequence_number: int
+    _sequence_period: int
 
     MODE_SIZE = 1
     MODE_TIME = 2
 
-    _mode = MODE_SIZE
+    _mode: int
     # either batch size or time
-    _mode_parameter: int = 100
-    _last_flush_time = time.perf_counter()
+    _mode_parameter: int
+    _last_flush_time: float
 
     output_dir: str
+
+    def __init__(self):
+        self._mode = self.MODE_SIZE
+        self._mode_parameter = 100
+        self._last_flush_time = time.perf_counter()
+
+        self._sequence_number = 0
+        self._sequence_period = 1000
+
+        self._count = 0
+        self._ts_count = 0
+        self._cache = []
+        self._current_ts = ""
 
     # TODO: this requires extensive testing, like we have to trigger the appends after the
     # initial warm-up, and also make sure the reuse of existing cache cells works correctly
     def add_to_batch(self, data: SensorReading, sensor_count: int) -> str:
-        # MAYBE: have a tmp file where you push complete timestamps, rename it when full
+        # TODO: MAYBE have a tmp file where you push complete timestamps, rename it when full
         # TODO: perform IO in a separate thread, even if we risk crossing GIL; need a way to signal AstraLog about
         # readiness of a new file.
 
@@ -54,10 +67,8 @@ class BatchManager:
             # but we can reuse those allocated at previous batches.
             if self._ts_count == len(self._cache):
                 # add entry to cache for the new timestamp, initialized with None
-                new_entry = TimestampData()
-                new_entry.ts = data.ts
-                new_entry.readings = [None] * sensor_count
-                self._cache.append(new_entry)
+                readings = [None] * sensor_count
+                self._cache.append(TimestampData(data.ts, readings))
             else:
                 # reuse an old slot
                 self._cache[self._ts_count].ts = data.ts
@@ -126,12 +137,9 @@ class BatchManager:
         reader = line_reader(content)
 
         while True:
-            data = TimestampData()
-
             ts = next(reader, None)
             if ts is None:
                 break
-            data.ts = ts
 
             readings = next(reader, None)
             if readings is None:
@@ -146,8 +154,8 @@ class BatchManager:
                 print("WARNING BatchManager: this shouldn't happen")
                 break
 
-            data.readings = [float(x) if x != "" else None for x in readings_list]
-            batch_data.append(data)
+            readings = [float(x) if x != "" else None for x in readings_list]
+            batch_data.append(TimestampData(ts, readings))
 
         return batch_data
 

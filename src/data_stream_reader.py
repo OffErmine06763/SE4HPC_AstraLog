@@ -1,4 +1,4 @@
-from data_reader import DataReader, DataReaderType
+from src.data_reader import DataReader, DataReaderType
 
 import paho.mqtt.client as mqtt
 import ssl
@@ -86,7 +86,6 @@ class DataStreamReader(DataReader):
         self._connected = False
         self._client.loop_stop()  # stop listening for events
         self._client.disconnect()
-        pass
 
     def __str__(self) -> str:
         return f"DataStreamReader (connected = {self._connected})"
