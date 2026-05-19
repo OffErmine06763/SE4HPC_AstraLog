@@ -1,4 +1,3 @@
-import pytest
 from src.data_file_reader import DataFileReader
 from src.data_reader import DataReaderType
 
@@ -12,51 +11,51 @@ def test_set_file_name():
 def test_open_file_not_found():
     reader = DataFileReader()
     reader.set_data_file("does_not_exist.txt")
-    assert reader.open() == False
+    assert reader.open() is False
 
 
 def test_open_file_empty_file(tmp_path):
     file = tmp_path / "readings.csv"
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == False
+    assert reader.open() is False
 
 
 def test_open_file_empty_header(tmp_path):
     file = tmp_path / "readings.csv"
     file.write_text("\n")
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == False
+    assert reader.open() is False
 
 
 def test_open_file_header_too_short(tmp_path):
     file = tmp_path / "readings.csv"
     file.write_text("a,b,c")
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == False
+    assert reader.open() is False
 
 
 def test_open_file_header_fields_wrong(tmp_path):
     file = tmp_path / "readings.csv"
     file.write_text("timestamp,sensor_id,value,AAA\n")
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == False
+    assert reader.open() is False
 
 
 def test_open_file_success(tmp_path):
     file = tmp_path / "readings.csv"
     file.write_text("timestamp,sensor_id,value,priority\n")
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == True
+    assert reader.open() is True
     reader.close()
 
 
@@ -67,20 +66,20 @@ def test_read_one(tmp_path):
 
     file = tmp_path / "readings.csv"
     file.write_text(data)
-    
+
     reader = DataFileReader()
     reader.set_data_file(str(file))
-    assert reader.open() == True
+    assert reader.open() is True
 
     ok1, line1 = reader.read_one()
     ok2, line2 = reader.read_one()
     ok3, line3 = reader.read_one()
 
-    assert ok1 == True
+    assert ok1
     assert line1 == "1,TEMP-001,99,LOW"
-    assert ok2 == True
+    assert ok2
     assert line2 == "1,TEMP-002,99,LOW"
-    assert ok3 == False
+    assert not ok3
     assert line3 == ""
 
     reader.close()

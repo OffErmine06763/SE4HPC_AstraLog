@@ -91,7 +91,6 @@ def test_time_based_multiple_flushes(out_dir):
     manager.set_mode(BatchManager.MODE_TIME, 500)
     manager.init()
 
-
     assert "" == manager.add_to_batch(SensorReading("time1", 0, 0.5), 2)
     assert "" == manager.add_to_batch(SensorReading("time1", 1, 0.2), 2)
     time.sleep(0.8)  # exceeds time limit

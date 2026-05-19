@@ -1,4 +1,3 @@
-import pytest
 from src.utils import SensorReading
 from src.data_filter import validate_sensor_data_csv, validate_sensor_data_json
 
@@ -56,15 +55,14 @@ def test_validate_json_timestamp_not_string():
     assert validate_sensor_data_json(data, SENSOR_IDS) is None
 
 
-
 def test_validate_json_no_sensor():
     data = """
-    {
-        "timestamp": "ts1",
-        "value": 0.5,
-        "priority": "HIGH"
-    }
-    """
+{
+    "timestamp": "ts1",
+    "value": 0.5,
+    "priority": "HIGH"
+}
+"""
 
     assert validate_sensor_data_json(data, SENSOR_IDS) is None
 
@@ -91,7 +89,7 @@ def test_validate_json_no_value():
     }
     """
 
-    assert validate_sensor_data_json(data, SENSOR_IDS) is None 
+    assert validate_sensor_data_json(data, SENSOR_IDS) is None
 
 
 def test_validate_json_value_not_float():
@@ -116,18 +114,18 @@ def test_validate_json_no_priority():
     }
     """
 
-    assert validate_sensor_data_json(data, SENSOR_IDS) is None 
+    assert validate_sensor_data_json(data, SENSOR_IDS) is None
 
 
 def test_validate_json_priority_not_string():
     data = """
-    {
-        "timestamp": "ts1",
-        "sensor_id": "sensor1",
-        "value": 0.5,
-        "priority": 123
-    }
-    """
+{
+    "timestamp": "ts1",
+    "sensor_id": "sensor1",
+    "value": 0.5,
+    "priority": 123
+}
+"""
 
     assert validate_sensor_data_json(data, SENSOR_IDS) is None
 

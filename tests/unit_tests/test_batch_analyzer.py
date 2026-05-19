@@ -1,4 +1,4 @@
-import pytest 
+import pytest
 from io import StringIO
 from src.batch_analyzer import priority_to_str, RuleNode, BatchAnalyzer
 from src.rule import Rule, SimpleRule, LogicalCorrelationRule, Operator, Logic
@@ -185,7 +185,7 @@ def test_batch_analyzer_load_rules1():
 
     analyzer = BatchAnalyzer()
 
-    assert analyzer.load_rules(rules) == True
+    assert analyzer.load_rules(rules) is True
 
     assert analyzer._rules == rules
 
@@ -219,7 +219,7 @@ def test_batch_analyzer_load_rules2():
 
     analyzer = BatchAnalyzer()
 
-    assert analyzer.load_rules(rules) == True
+    assert analyzer.load_rules(rules) is True
 
     assert analyzer._rules == rules
 
@@ -257,8 +257,8 @@ def test_analyze_all_ok():
 
     td = TimestampData("ts1", [0.6, 0.45])
 
-    assert analyzer.analyze(td) == True
-    
+    assert analyzer.analyze(td) is True
+
     output = analyzer._alarms_output_file.getvalue()
     assert output == ""
 
@@ -278,8 +278,8 @@ def test_analyze_rules_triggered():
 
     td = TimestampData("ts1", [0.4, 0.45])
 
-    assert analyzer.analyze(td) == False
-    
+    assert analyzer.analyze(td) is False
+
     output = analyzer._alarms_output_file.getvalue()
     expected_output = "ts1;rule1;LOW;sensor1;0.4\n"
     expected_output += "ts1;rule4;HIGH;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"

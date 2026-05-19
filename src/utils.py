@@ -23,11 +23,7 @@ else:
             return self
 
         def __exit__(self, *args):
-            termios.tcsetattr(
-                self.fd,
-                termios.TCSADRAIN,
-                self.old_settings
-            )
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old_settings)
 
     def get_key():
         dr, _, _ = select.select([sys.stdin], [], [], 0)
@@ -36,7 +32,6 @@ else:
         return None
 
     unix_reader = UnixKeyReader()
-
 
 
 class FrequencyMeter:
@@ -49,7 +44,7 @@ class FrequencyMeter:
         now = time.perf_counter()
         if now - self.start >= 5.0:
             hz = self.count / (now - self.start)
-            
+
             self.on_hz(hz)
 
             self.start = now
@@ -57,7 +52,7 @@ class FrequencyMeter:
 
     def init(self):
         self.start = time.perf_counter()
-    
+
     def __init__(self):
         self.count = 0
 
@@ -67,7 +62,7 @@ class TimestampData:
     readings: list[float | None]
 
     def __init__(self, _ts: str, _readings: list[float | None]):
-        self.ts = _ts 
+        self.ts = _ts
         self.readings = _readings
 
 

@@ -33,19 +33,19 @@ class BatchAnalyzer:
 
     _sensor_id_to_name: list[str]
 
-    _rules           : list[Rule]      # since rules have progressive ids, this can be indexed using rule.id
-    _indep_rules_id  : list[int]       # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
-    _outcomes        : list[bool]      # outcome of rule i (both index and id) at the current timestamp
+    _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
+    _indep_rules_id: list[int]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
+    _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
     _corr_rules_graph: list[RuleNode]  # graph nodes corresponding to correlation rules
-    _leaf_nodes_ind  : list[int]       # indexes of graph nodes that do not depend on other correlation rules
+    _leaf_nodes_ind: list[int]         # indexes of graph nodes that do not depend on other correlation rules
 
     def __init__(self):
         self._sensor_id_to_name = []
-        self._rules             = []
-        self._indep_rules_id    = []
-        self._outcomes          = []
-        self._corr_rules_graph  = []
-        self._leaf_nodes_ind    = []
+        self._rules = []
+        self._indep_rules_id = []
+        self._outcomes = []
+        self._corr_rules_graph = []
+        self._leaf_nodes_ind = []
 
     def analyze(self, td: TimestampData) -> bool:
         all_ok = True
@@ -69,8 +69,10 @@ class BatchAnalyzer:
             for i in local_leafs:
                 node = self._corr_rules_graph[i]
                 rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                
-                self._outcomes[rule.id] = rule.is_violated(self._outcomes[rule.op1], self._outcomes[rule.op2])
+
+                self._outcomes[rule.id] = rule.is_violated(
+                    self._outcomes[rule.op1], self._outcomes[rule.op2]
+                )
                 if self._outcomes[rule.id]:
                     all_ok = False
                     self.write_alarms(rule, td)
@@ -86,21 +88,19 @@ class BatchAnalyzer:
             # swap the buffers
             local_leafs = local_leafs_next
             local_leafs_next = []
-        
-        return all_ok
 
+        return all_ok
 
     def analyze_and_output(self, batch_data: list[TimestampData]):
         for td in batch_data:
             ok = self.analyze(td)
             if ok:
                 self.write_valid_data(td)
-    
 
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
-        mapping: dict[int, int] = {} # mapping from rule id to _corr_rules_graph index
+        mapping: dict[int, int] = {}  # mapping from rule id to _corr_rules_graph index
 
         for r in self._rules:
             if isinstance(r, IndependentRule):
@@ -114,7 +114,7 @@ class BatchAnalyzer:
         for i in range(len(self._corr_rules_graph)):
             n = self._corr_rules_graph[i]
             rule = cast(LogicalCorrelationRule, self._rules[n.id])
-            
+
             if isinstance(self._rules[rule.op1], LogicalCorrelationRule):
                 n.num_pred += 1
                 self._corr_rules_graph[mapping[rule.op1]].next.append(i)
@@ -125,32 +125,41 @@ class BatchAnalyzer:
             # initial leaf nodes, to be used at the start of a new timestamp analysis
             if n.num_pred == 0:
                 self._leaf_nodes_ind.append(i)
-            
 
         # TODO: add validation of rules, i.e. well formed dependency graph (acyclic)
         return True
 
     def write_valid_data(self, td: TimestampData):
         if self._valid_output_file.closed:
-            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
+            print(
+                "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file"
+            )
             return
-        
+
         self._valid_output_file.write(f"{td.ts};NOMINAL;")
         for i in range(len(td.readings) - 1):
             data = td.readings[i]
             self._valid_output_file.write(f"{self._sensor_id_to_name[i]}:{data}|")
         end = len(td.readings) - 1
-        self._valid_output_file.write(f"{self._sensor_id_to_name[end]}:{td.readings[end]}")
+        self._valid_output_file.write(
+            f"{self._sensor_id_to_name[end]}:{td.readings[end]}"
+        )
         self._valid_output_file.write("\n")
-        
+
     def write_alarms(self, rule: Rule, td: TimestampData):
         if self._alarms_output_file.closed:
-            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
+            print(
+                "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file"
+            )
             return
-        
-        self._alarms_output_file.write(f"{td.ts};{rule.name};{priority_to_str(rule.priority)};")
+
+        self._alarms_output_file.write(
+            f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
+        )
         if isinstance(rule, IndependentRule):
-            self._alarms_output_file.write(f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}")
+            self._alarms_output_file.write(
+                f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}"
+            )
         elif isinstance(rule, LogicalCorrelationRule):
             to_print: Queue[Rule] = Queue()
             to_print.put(self._rules[rule.op1])
@@ -167,7 +176,7 @@ class BatchAnalyzer:
                 elif isinstance(r, LogicalCorrelationRule):
                     to_print.put(self._rules[r.op1])
                     to_print.put(self._rules[r.op2])
-            
+
             for name in sensor_names_to_print[:-1]:
                 self._alarms_output_file.write(f"{name},")
             self._alarms_output_file.write(f"{sensor_names_to_print[-1]};")
@@ -175,24 +184,22 @@ class BatchAnalyzer:
             for value in sensor_values_to_print[:-1]:
                 self._alarms_output_file.write(f"{value},")
             self._alarms_output_file.write(f"{sensor_values_to_print[-1]}")
-        
-        self._alarms_output_file.write("\n")
-            
 
+        self._alarms_output_file.write("\n")
 
     def set_valid_output_file(self, filename: str):
         self._valid_output_file = open(filename, "w")
         # TODO: handle errors
+
     def set_alarms_output_file(self, filename: str):
         self._alarms_output_file = open(filename, "w")
         # TODO: handle errors
+
     def set_sensors(self, sensor_id_to_name: list[str]):
         self._sensor_id_to_name = sensor_id_to_name
-
 
     def deinit(self):
         if not self._alarms_output_file.closed:
             self._alarms_output_file.close()
         if not self._valid_output_file.closed:
             self._valid_output_file.close()
-    

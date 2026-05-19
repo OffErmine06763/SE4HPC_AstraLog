@@ -1,8 +1,7 @@
-import pytest
 import os
 from unittest.mock import patch
 from src.batch_manager import BatchManager
-from src.utils import TimestampData, SensorReading
+from src.utils import SensorReading
 
 
 # ------------------
@@ -22,7 +21,7 @@ def test_parse_batch_file_correct():
     data = "ts1\n0.4,0.3,0.2\nts2\n0.1,,0.2"
 
     result = BatchManager.parse_batch_file(data)
-    
+
     assert len(result) == 2
     assert result[0].ts == "ts1"
     assert result[0].readings == [0.4, 0.3, 0.2]
@@ -153,7 +152,7 @@ def test_add_to_batch_flushes_mode_size(tmp_path):
     manager = BatchManager()
     manager.set_mode(BatchManager.MODE_SIZE, 1)
     manager.output_dir = tmp_path / "out_dir"
-    
+
     file = tmp_path / "out_dir" / "raw_data_0_0000.txt"
     os.mkdir(tmp_path / "out_dir")
 
@@ -172,7 +171,7 @@ def test_add_to_batch_flushes_mode_time(tmp_path):
     manager = BatchManager()
     manager.set_mode(BatchManager.MODE_TIME, 100)
     manager.output_dir = tmp_path / "out_dir"
-    
+
     file = tmp_path / "out_dir" / "raw_data_0_0000.txt"
     os.mkdir(tmp_path / "out_dir")
 

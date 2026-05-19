@@ -6,11 +6,12 @@ from src.batch_analyzer import BatchAnalyzer
 from src.config_reader import parse_sensors_config, parse_rules_config
 
 import os
+import io
 import threading
 import time
-from queue import Queue
+from queue import Queue, Empty
 
-# fu GIL
+
 class AstraLog:
     _data_reader: DataReader | None
     _batch_manager: BatchManager
@@ -33,7 +34,6 @@ class AstraLog:
     ERASE_BATCHES = True
     BATCH_QUEUE_LOOP_TIMEOUT = 2
 
-
     def __init__(self):
         self._data_reader = None
         self._batch_analyzer = BatchAnalyzer()
@@ -52,7 +52,6 @@ class AstraLog:
 
         self._freq_meter.on_hz = self.on_hz
 
-
     def analysis_loop(self):
         print("AstraLog - Analysis: starting")
 
@@ -66,8 +65,8 @@ class AstraLog:
             batch_filename: str
             try:
                 batch_filename = self._batches_ready.get(timeout=self.BATCH_QUEUE_LOOP_TIMEOUT)
-            except:
-                continue # every 5 seconds check if this worker thread should quit
+            except Empty:
+                continue  # every 5 seconds check if this worker thread should quit
 
             print(f"AstraLog - Analysis: analyzing batch {batch_filename}...")
             start = time.perf_counter()
@@ -86,34 +85,50 @@ class AstraLog:
                 self._batch_analyzer.analyze_and_output(batch_data)
 
             except FileNotFoundError:
-                print(f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found")
-            except PermissionError: # TODO: put "ERROR" or "WARNING" in the logs that need it
-                print(f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'")
-            
+                print(
+                    f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found"
+                )
+            except (
+                PermissionError
+            ):  # TODO: put "ERROR" or "WARNING" in the logs that need it
+                print(
+                    f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'"
+                )
+
             dt = time.perf_counter() - start
-            print(f"AstraLog - Analysis: analyzing batch {batch_filename}... done in {dt:.3f}s")
+            print(
+                f"AstraLog - Analysis: analyzing batch {batch_filename}... done in {dt:.3f}s"
+            )
 
         print("AstraLog - Analysis: stopping")
 
-
-
-    def start(self):
+    def prepare_before_start(self) -> bool:
         if self._data_reader is None:
-            print("AstraLog: specify a sensor data source using AstraLog.set_data_source")
-            return
+            print(
+                "AstraLog: specify a sensor data source using AstraLog.set_data_source"
+            )
+            return False
         if self._sensor_count == 0:
             print("AstraLog: provide sensors configuration using AstraLog.set_sensors")
-            return
-        
+            return False
+
         print("AstraLog: START")
 
         success = self._data_reader.open()
         if not success:
             print("AstraLog: failed to open connection to data source, aborting")
-            return
+            return False
 
         self._freq_meter.init()
         self._batch_manager.init()
+
+        return True
+
+    def start(self):
+        ok = self.prepare_before_start()
+        if not ok:
+            return
+
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
 
@@ -125,12 +140,12 @@ class AstraLog:
                 if key and key.lower() == "q":
                     self._stop_analysis_event.set()
                     break
-            except:
+            except io.UnsupportedOperation:
                 print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
             valid, data_raw = self._data_reader.read_one()
-            if not valid: # EOF or connection issues
+            if not valid:  # EOF or connection issues
                 break
 
             # validate the json or csv, returning a struct
@@ -156,7 +171,7 @@ class AstraLog:
 
         # flush what is left in the batch manager
         filename = self._batch_manager.get_flush_filename()
-        self._batch_manager.flush(filename, full=True) 
+        self._batch_manager.flush(filename, full=True)
         self._batches_ready.put(filename)
 
         self._data_reader_loop_finished_event.set()
@@ -165,23 +180,23 @@ class AstraLog:
 
         print("AstraLog: END")
 
-
-
     def set_data_source(self, data_reader: DataReader):
         self._data_reader = data_reader
         print(f"AstraLog: data source set to {data_reader.__str__()}")
 
     def set_rules(self, rules_filename) -> bool:
         if self._sensor_count == 0:
-            print("AstraLog: provide sensors configuration using AstraLog.set_sensors before specifying rules")
+            print(
+                "AstraLog: provide sensors configuration using AstraLog.set_sensors before specifying rules"
+            )
             return False
-        
+
         print("AstraLog: reading rules configuration file... ")
-        
+
         ok, rules = parse_rules_config(rules_filename, self._sensor_ids)
         if not ok:
             return False
-        
+
         print(f"AstraLog: found {len(rules)} rules")
 
         ok = self._batch_analyzer.load_rules(rules)
@@ -193,16 +208,18 @@ class AstraLog:
 
     def set_sensors(self, sensors_filename: str) -> bool:
         print("AstraLog: reading sensor configuration file... ")
-        
-        count, freq = parse_sensors_config(sensors_filename, self._sensor_ids, self._sensor_names)
+
+        count, freq = parse_sensors_config(
+            sensors_filename, self._sensor_ids, self._sensor_names
+        )
         if count == -1:
             return False
-        
+
         self._sensor_count = count
         self._reading_freq = freq
         self._batch_analyzer.set_sensors(self._sensor_names)
         print(f"AstraLog: found {self._sensor_count} sensors at {self._reading_freq}Hz")
-        
+
         print("AstraLog: reading sensor configuration file... done")
         return True
 
@@ -214,21 +231,26 @@ class AstraLog:
             print("WARNING AstraLog: sensor count greater than batch size")
         if mode == BatchManager.MODE_TIME and 1 / param > self._reading_freq:
             # this shouldn't be a big deal, but we still generate some empty batches
-            print("WARNING AstraLog: batch frequency higher than sensor data generation frequency")
-
+            print(
+                "WARNING AstraLog: batch frequency higher than sensor data generation frequency"
+            )
 
     def set_batch_output_dir(self, path: str):
         if not os.path.exists(path):
             os.makedirs(path)
         self._batch_manager.output_dir = path
+
     def set_alarms_output_file(self, filename: str):
         self._batch_analyzer.set_alarms_output_file(filename)
+
     def set_valid_output_file(self, filename: str):
         self._batch_analyzer.set_valid_output_file(filename)
 
-
     def on_hz(self, hz):
-        print(f"AstraLog: {hz:.2f} iterations/sec", end = "")
+        print(f"AstraLog: {hz:.2f} iterations/sec", end="")
         if hz < 0.9 * self._reading_freq * self._sensor_count:
-            print(f" FALLING BEHIND (target = {self._reading_freq * self._sensor_count})", end="")
+            print(
+                f" FALLING BEHIND (target = {self._reading_freq * self._sensor_count})",
+                end="",
+            )
         print()

@@ -1,6 +1,5 @@
-import pytest
 import os.path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from src.astralog import AstraLog
 from src.data_file_reader import DataFileReader
 from src.batch_manager import BatchManager
@@ -20,8 +19,8 @@ def test_astralog_set_data_source():
 
 def test_astralog_set_sensors_invalid_file():
     astralog = AstraLog()
-    
-    assert astralog.set_sensors("does_not_exist.json") == False
+
+    assert astralog.set_sensors("does_not_exist.json") is False
     assert astralog._sensor_count == 0
 
 
@@ -61,13 +60,13 @@ def test_astralog_set_paths(tmp_path):
 
 def test_astralog_set_rules_no_sensors():
     astralog = AstraLog()
-    assert astralog.set_rules("") == False
+    assert astralog.set_rules("") is False
 
 
 def test_astralog_set_rules_invalid_file():
     astralog = AstraLog()
     astralog._sensor_count = 1
-    assert astralog.set_rules("does_not_exist.txt") == False
+    assert astralog.set_rules("does_not_exist.txt") is False
 
 
 # -----------------------
@@ -97,7 +96,7 @@ def test_astralog_start_fails_without_data_reader(capsys):
     output = capsys.readouterr().out
     assert "AstraLog: specify a sensor data source using AstraLog.set_data_source" \
         in output
-    
+
 
 def test_atralog_start_fails_without_sensors(capsys):
     alog = AstraLog()

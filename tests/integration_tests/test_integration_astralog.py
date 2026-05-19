@@ -63,7 +63,7 @@ def astralog(out_dir, valid_output_file, alarms_output_file):
     reader = DataFileReader()
     reader.set_data_file(READINGS_FILE)
     alog.set_data_source(reader)
-    
+
     alog.set_sensors(SENSORS_FILE)
     alog.set_rules(RULES_FILE)
     alog.set_batch_mode(BatchManager.MODE_SIZE, 0)  # to flush everything
@@ -107,7 +107,6 @@ def test_analysis_loop_waits_for_batch(astralog, tmp_path, valid_output_file, al
     assert_files_equal(EXPECTED_VALID_FILE, valid_output_file)
 
 
-
 def test_analysis_loop_stops_on_event(astralog, tmp_path, valid_output_file, alarms_output_file):
     analysis_thread = threading.Thread(target=astralog.analysis_loop)
     analysis_thread.start()
@@ -124,7 +123,7 @@ def test_analysis_loop_stops_on_event(astralog, tmp_path, valid_output_file, ala
 
 def test_analysis_loop_does_not_delete_batch(astralog, tmp_path, valid_output_file, alarms_output_file):
     AstraLog.ERASE_BATCHES = False
-    
+
     analysis_thread = threading.Thread(target=astralog.analysis_loop)
     analysis_thread.start()
 
@@ -163,7 +162,7 @@ def test_analysis_loop_warns_on_invalid_file(capsys, astralog, tmp_path, valid_o
     sysout = capsys.readouterr().out
     assert f"ERROR AstraLog - Analysis: batch file '{batch_file}' not found" \
         in sysout
-    
+
 
 # ---------------------
 # AstraLog start method
@@ -171,7 +170,7 @@ def test_analysis_loop_warns_on_invalid_file(capsys, astralog, tmp_path, valid_o
 
 def test_astralog_start(astralog, valid_output_file, alarms_output_file):
     astralog.start()
-    
+
     assert_files_equal(EXPECTED_ALARM_FILE, alarms_output_file)
     assert_files_equal(EXPECTED_VALID_FILE, valid_output_file)
 
@@ -179,7 +178,6 @@ def test_astralog_start(astralog, valid_output_file, alarms_output_file):
 def test_astralog_finishes_non_flushed(astralog, valid_output_file, alarms_output_file):
     astralog.set_batch_mode(BatchManager.MODE_SIZE, 1000)  # will never flush when adding new batches
     astralog.start()
-    
+
     assert_files_equal(EXPECTED_ALARM_FILE, alarms_output_file)
     assert_files_equal(EXPECTED_VALID_FILE, valid_output_file)
-

@@ -47,8 +47,7 @@ def test_analyzing_batched_data(tmp_path):
     expected_valid_output = "time1;NOMINAL;sensor1:None|sensor2:None|sensor3:None|sensor4:None\n"
     expected_valid_output += "time4;NOMINAL;sensor1:0.4|sensor2:0.6|sensor3:0.4|sensor4:0.6\n"
 
-    expected_alarms_output = \
-"""time2;simple1;MEDIUM;sensor1;0.6
+    expected_alarms_output = """time2;simple1;MEDIUM;sensor1;0.6
 time2;simple2;LOW;sensor2;0.4
 time2;simple3;HIGH;sensor3;0.6
 time2;simple4;LOW;sensor4;0.4
