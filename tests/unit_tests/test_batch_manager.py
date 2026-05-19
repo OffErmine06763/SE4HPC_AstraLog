@@ -53,7 +53,7 @@ def test_batch_manager_init_and_set():
     with patch("src.batch_manager.time.perf_counter", return_value=1):
         manager.init()
 
-    assert manager._last_flush_time == 1
+    assert manager._last_flush_time == 1000
 
     # set mode param
     manager.set_mode(BatchManager.MODE_TIME, 10)

@@ -124,6 +124,8 @@ class BatchManager:
         self._count = sum(x is not None for x in self._cache[0].readings)
         self._ts_count = 1
 
+        self.reset_flush_timer()
+
 
     @staticmethod
     def parse_batch_file(content: str) -> list[TimestampData]:
@@ -157,9 +159,11 @@ class BatchManager:
         
         return batch_data
     
+    def reset_flush_timer(self):
+        self._last_flush_time = time.perf_counter() * 1000
 
     def init(self):
-        self._last_flush_time = time.perf_counter()
+        self.reset_flush_timer()
 
     def set_mode(self, mode, param):
         self._mode = mode
