@@ -29,21 +29,11 @@ class BatchAnalyzer:
 
     _sensor_id_to_name: list[str] = []
 
-    _rules: list[
-        Rule
-    ] = []  # since rules have progressive ids, this can be indexed using rule.id
-    _indep_rules_id: list[
-        int
-    ] = []  # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
-    _outcomes: list[
-        bool
-    ] = []  # outcome of rule i (both index and id) at the current timestamp
-    _corr_rules_graph: list[
-        RuleNode
-    ] = []  # graph nodes corresponding to correlation rules
-    _leaf_nodes_ind: list[
-        int
-    ] = []  # indexes of graph nodes that do not depend on other correlation rules
+    _rules: list[Rule] = []  # since rules have progressive ids, this can be indexed using rule.id
+    _indep_rules_id: list[int] = []  # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
+    _outcomes: list[bool] = []  # outcome of rule i (both index and id) at the current timestamp
+    _corr_rules_graph: list[RuleNode] = []  # graph nodes corresponding to correlation rules
+    _leaf_nodes_ind: list[int] = []  # indexes of graph nodes that do not depend on other correlation rules
 
     def analyze(self, td: TimestampData) -> bool:
         all_ok = True
