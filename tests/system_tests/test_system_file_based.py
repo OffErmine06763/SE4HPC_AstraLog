@@ -33,7 +33,7 @@ def test_system_with_simple_files(tmp_path):
 
     result = subprocess.run(
         [
-            "python3", "-m", "src.main", "--reading-mode", "file", 
+            "python3", "-m", "src.main", "--reading-mode", "file",
             "--batch-mode", "count", "--limit", "10",
             "--readings-file", str(readings_file),
             "--sensors-file", str(sensors_file),
@@ -66,7 +66,7 @@ def run_with_timer_large_test(tmp_path, readings_filename, time_limit,
         start_time = time.perf_counter()
         result = subprocess.run(
             [
-                "python3", "-m", "src.main", "--reading-mode", "file", 
+                "python3", "-m", "src.main", "--reading-mode", "file",
                 "--batch-mode", batch_mode_str, "--limit", str(limit),
                 "--readings-file", str(readings_file),
                 "--sensors-file", str(sensors_file),
@@ -85,7 +85,6 @@ def run_with_timer_large_test(tmp_path, readings_filename, time_limit,
     print(f"AstraLog finished in {end_time-start_time}s for {readings_filename}")
     assert result.returncode == 0
     assert b"AstraLog: END" in result.stdout
-
 
 
 def test_system_with_readings_alpha_small(tmp_path):
