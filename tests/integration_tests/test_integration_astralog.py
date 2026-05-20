@@ -95,7 +95,7 @@ def test_analysis_loop_waits_for_batch(astralog, tmp_path, valid_output_file, al
 
     astralog._batches_ready.put(batch_file)
 
-    astralog._data_reader_loop_finished_event.set()
+    astralog._stop_analysis_event.set()
     analysis_thread.join(timeout=15.0)
 
     astralog._batch_analyzer.deinit()
@@ -133,7 +133,7 @@ def test_analysis_loop_does_not_delete_batch(astralog, tmp_path, valid_output_fi
 
     astralog._batches_ready.put(batch_file)
 
-    astralog._data_reader_loop_finished_event.set()
+    astralog._stop_analysis_event.set()
     analysis_thread.join(timeout=15.0)
 
     astralog._batch_analyzer.deinit()
@@ -152,7 +152,7 @@ def test_analysis_loop_warns_on_invalid_file(capsys, astralog, tmp_path, valid_o
     batch_file = tmp_path / "does_not_exist.txt"
     astralog._batches_ready.put(batch_file)
 
-    astralog._data_reader_loop_finished_event.set()
+    astralog._stop_analysis_event.set()
     analysis_thread.join(timeout=15.0)
 
     astralog._batch_analyzer.deinit()

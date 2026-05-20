@@ -26,7 +26,6 @@ class AstraLog:
 
     _analysis_thread: threading.Thread
     _stop_analysis_event: threading.Event
-    _data_reader_loop_finished_event: threading.Event
 
     # this is synchronized
     _batches_ready: Queue[str]
@@ -47,7 +46,6 @@ class AstraLog:
         self._freq_meter = FrequencyMeter()
 
         self._stop_analysis_event = threading.Event()
-        self._data_reader_loop_finished_event = threading.Event()
         self._batches_ready = Queue()
 
         self._freq_meter.on_hz = self.on_hz
@@ -56,10 +54,7 @@ class AstraLog:
         print("AstraLog - Analysis: starting")
 
         while True:
-            if self._stop_analysis_event.is_set():
-                break
-
-            if self._data_reader_loop_finished_event.is_set() and self._batches_ready.empty():
+            if self._stop_analysis_event.is_set() and self._batches_ready.empty():
                 break
 
             batch_filename: str
@@ -174,7 +169,7 @@ class AstraLog:
         self._batch_manager.flush(filename, full=True)
         self._batches_ready.put(filename)
 
-        self._data_reader_loop_finished_event.set()
+        self._stop_analysis_event.set()
         self._analysis_thread.join()
         self._batch_analyzer.deinit()
 
