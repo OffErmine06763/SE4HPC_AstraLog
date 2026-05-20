@@ -7,33 +7,56 @@ from src.batch_manager import BatchManager
 import argparse
 
 
+# Example command (from root dir):
+# python3 -m src.main --reading-mode file --batch-mode count --limit 10
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AstraLog Telemetry Collector")
-    # TODO: bring back those command line args and add all the other parameters (sensor and rule filenames,
-    # output filename, batch output dir, stream or file mode (along with data file))
-    # parser.add_argument("--mode", choices=["count", "time"], required=True, help="Accumulation mode")
-    # parser.add_argument("--limit", type=int, required=True, help="Messages count or Time interval in ms")
+
+    parser.add_argument("--reading-mode", choices=["file", "mqtt"], required=True,
+                        help="Type of data provider")
+    parser.add_argument("--batch-mode", choices=["count", "time"], required=True,
+                        help="Accumulation mode")
+    parser.add_argument("--limit", type=int, required=True,
+                        help="Messages count or Time interval in ms")
+
+    # TODO uncomment the seq-period flag
     # parser.add_argument("--seq-period", type=int, default=100, help="Sequence number period (default: 100)")
+
+    parser.add_argument("--readings-file", type=str, default="res/readings_sigma.csv",
+                        help="In case of mode=count, the filename of the readings. (default=res/readings_sigma.csv)")
+    parser.add_argument("--sensors-file", type=str, default="res/sensors_sigma.yaml",
+                        help="File with sensor information (default=res/sensors_sigma.yaml)")
+    parser.add_argument("--rules-file", type=str, default="res/rules_sigma.json",
+                        help="File with rules information (default=res/rules_sigma.json)")
+
+    parser.add_argument("--output-dir", type=str, default="out/readings",
+                        help="Output dir for batch files (default=out/readings)")
+    parser.add_argument("--valid_output_file", type=str, default="out/valid.txt",
+                        help="File for valid readings (default=out/valid.txt)")
+    parser.add_argument("--alarms_output_file", type=str, default="out/alarms.txt",
+                        help="File for alarms (default=out/alarms.txt)")
+
     args = parser.parse_args()
 
-    data_reader_type: DataReaderType = DataReaderType.FILE
-    batch_mode, batch_param = BatchManager.MODE_SIZE, 8
+    data_reader_type = DataReaderType.FILE if args.reading_mode == "file" else DataReaderType.STREAM
+    batch_mode = BatchManager.MODE_SIZE if args.batch_mode == "count" else BatchManager.MODE_TIME
+    batch_param = args.limit
 
     alog = AstraLog()
 
     if data_reader_type == DataReaderType.FILE:
         src = DataFileReader()
-        src.set_data_file("res/readings_sigma.csv")
+        src.set_data_file(args.readings_file)
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
         src = DataStreamReader()
         alog.set_data_source(src)
 
-    alog.set_sensors("res/sensors_sigma.yaml")
-    alog.set_rules("res/rules_sigma.json")
+    alog.set_sensors(args.sensors_file)
+    alog.set_rules(args.rules_file)
     alog.set_batch_mode(batch_mode, batch_param)
-    alog.set_batch_output_dir("out/readings")
-    alog.set_valid_output_file("out/valid.txt")
-    alog.set_alarms_output_file("out/alarms.txt")
+    alog.set_batch_output_dir(args.output_dir)
+    alog.set_valid_output_file(args.valid_output_file)
+    alog.set_alarms_output_file(args.alarms_output_file)
 
     alog.start()
