@@ -31,9 +31,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--output-dir", type=str, default="out/readings",
                         help="Output dir for batch files (default=out/readings)")
-    parser.add_argument("--valid_output_file", type=str, default="out/valid.txt",
+    parser.add_argument("--valid-output-file", type=str, default="out/valid.txt",
                         help="File for valid readings (default=out/valid.txt)")
-    parser.add_argument("--alarms_output_file", type=str, default="out/alarms.txt",
+    parser.add_argument("--alarms-output-file", type=str, default="out/alarms.txt",
                         help="File for alarms (default=out/alarms.txt)")
 
     args = parser.parse_args()
