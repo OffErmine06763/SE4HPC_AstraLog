@@ -6,6 +6,7 @@ import time
 
 
 DATA_DIR = os.path.join(pathlib.Path(__file__).parent, "data")
+LARGE_TEST_DIR = os.path.join(pathlib.Path(__file__).parent.parent.parent, "res")
 
 
 def assert_files_equal(file1, file2):
@@ -55,9 +56,9 @@ def test_system_with_simple_files(tmp_path):
 
 def run_with_timer_large_test(tmp_path, readings_filename, time_limit,
                               batch_mode_str, limit):
-    readings_file = os.path.join(DATA_DIR, "test_large", readings_filename)
-    sensors_file = os.path.join(DATA_DIR, "test_large", "sensors_alpha.yaml")
-    rules_file = os.path.join(DATA_DIR, "test_large", "rules_alpha.json")
+    readings_file = os.path.join(LARGE_TEST_DIR, readings_filename)
+    sensors_file = os.path.join(LARGE_TEST_DIR, "sensors_alpha.yaml")
+    rules_file = os.path.join(LARGE_TEST_DIR, "rules_alpha.json")
     output_dir = tmp_path / "out_dir"
     valid_output_file = tmp_path / "valid_output.txt"
     alarms_output_file = tmp_path / "alarms_output.txt"
