@@ -6,9 +6,10 @@ from src.batch_analyzer import BatchAnalyzer
 from src.config_reader import parse_sensors_config, parse_rules_config
 
 import os
+import io
 import threading
 import time
-from queue import Queue
+from queue import Queue, Empty
 
 
 class AstraLog:
@@ -25,10 +26,12 @@ class AstraLog:
 
     _analysis_thread: threading.Thread
     _stop_analysis_event: threading.Event
+
     # this is synchronized
     _batches_ready: Queue[str]
 
     ERASE_BATCHES = True
+    BATCH_QUEUE_LOOP_TIMEOUT = 2
 
     def __init__(self):
         self._data_reader = None
@@ -50,11 +53,14 @@ class AstraLog:
     def analysis_loop(self):
         print("AstraLog - Analysis: starting")
 
-        while not self._stop_analysis_event.is_set():
+        while True:
+            if self._stop_analysis_event.is_set() and self._batches_ready.empty():
+                break
+
             batch_filename: str
             try:
-                batch_filename = self._batches_ready.get(timeout=2)
-            except Exception:
+                batch_filename = self._batches_ready.get(timeout=self.BATCH_QUEUE_LOOP_TIMEOUT)
+            except Empty:
                 continue  # every 5 seconds check if this worker thread should quit
 
             print(f"AstraLog - Analysis: analyzing batch {batch_filename}...")
@@ -91,34 +97,46 @@ class AstraLog:
 
         print("AstraLog - Analysis: stopping")
 
-    def start(self):
+    def prepare_before_start(self) -> bool:
         if self._data_reader is None:
             print(
                 "AstraLog: specify a sensor data source using AstraLog.set_data_source"
             )
-            return
+            return False
         if self._sensor_count == 0:
             print("AstraLog: provide sensors configuration using AstraLog.set_sensors")
-            return
+            return False
 
         print("AstraLog: START")
 
         success = self._data_reader.open()
         if not success:
             print("AstraLog: failed to open connection to data source, aborting")
-            return
+            return False
 
         self._freq_meter.init()
         self._batch_manager.init()
+
+        return True
+
+    def start(self):
+        ok = self.prepare_before_start()
+        if not ok:
+            return
+
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
 
         while True:
             # handle execution metrics and keyboard
             self._freq_meter.update()
-            key = get_key()
-            if key and key.lower() == "q":
-                break
+            try:
+                key = get_key()
+                if key and key.lower() == "q":
+                    self._stop_analysis_event.set()
+                    break
+            except io.UnsupportedOperation:
+                print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
             valid, data_raw = self._data_reader.read_one()
@@ -145,6 +163,12 @@ class AstraLog:
                 self._batches_ready.put(filename)
 
         self._data_reader.close()
+
+        # flush what is left in the batch manager
+        filename = self._batch_manager.get_flush_filename()
+        self._batch_manager.flush(filename, full=True)
+        self._batches_ready.put(filename)
+
         self._stop_analysis_event.set()
         self._analysis_thread.join()
         self._batch_analyzer.deinit()

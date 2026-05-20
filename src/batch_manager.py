@@ -52,10 +52,16 @@ class BatchManager:
         self._cache = []
         self._current_ts = ""
 
+    def get_flush_filename(self) -> str:
+        seq_num = self._sequence_number % self._sequence_period
+        self._sequence_number = (self._sequence_number + 1) % self._sequence_period
+        return os.path.join(self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt")
+
     # TODO: this requires extensive testing, like we have to trigger the appends after the
     # initial warm-up, and also make sure the reuse of existing cache cells works correctly
     def add_to_batch(self, data: SensorReading, sensor_count: int) -> str:
         # TODO: MAYBE have a tmp file where you push complete timestamps, rename it when full
+
         # TODO: perform IO in a separate thread, even if we risk crossing GIL; need a way to signal AstraLog about
         # readiness of a new file.
 
@@ -92,11 +98,7 @@ class BatchManager:
                 flush = True
 
         if flush:
-            seq_num = self._sequence_number % self._sequence_period
-            self._sequence_number = (self._sequence_number + 1) % self._sequence_period
-            filename = os.path.join(
-                self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt"
-            )
+            filename = self.get_flush_filename()
             self.flush(filename)
             return filename
 
@@ -125,6 +127,8 @@ class BatchManager:
         self._cache[0].readings = self._cache[self._ts_count - 1].readings.copy()
         self._count = sum(x is not None for x in self._cache[0].readings)
         self._ts_count = 1
+
+        self.reset_flush_timer()
 
     @staticmethod
     def parse_batch_file(content: str) -> list[TimestampData]:
@@ -159,8 +163,11 @@ class BatchManager:
 
         return batch_data
 
+    def reset_flush_timer(self):
+        self._last_flush_time = time.perf_counter() * 1000
+
     def init(self):
-        self._last_flush_time = time.perf_counter()
+        self.reset_flush_timer()
 
     def set_mode(self, mode, param):
         self._mode = mode
