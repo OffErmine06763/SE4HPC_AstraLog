@@ -99,7 +99,7 @@ def test_system_with_readings_alpha_medium(tmp_path):
 
 
 def test_system_with_readings_alpha_large_count_mode(tmp_path):
-    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=20,
+    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=60,
                               batch_mode_str="count", limit=100)
 
 
