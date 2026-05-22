@@ -25,6 +25,12 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
     - name: Test with pytest
+      env:
+        BROKER_URL: localhost
+        PORT: 8883
+        TOPIC: test/topic
+        USER: testuser
+        PASSWORD: testpassword
       run: |
         pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
