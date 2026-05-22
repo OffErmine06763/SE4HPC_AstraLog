@@ -1,4 +1,6 @@
 out/*
+output_collector/*
+*/out/*
 .pytest_case/*
 .coverage
 *.sif
@@ -7,3 +9,5 @@ out/*
 __pycache__/
 *.py[codz]
 *$py.class
+
+.env

@@ -4,7 +4,10 @@ import paho.mqtt.client as mqtt
 import ssl
 import uuid
 from queue import Queue
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def on_message(self, userdata, msg):
     queue = userdata["queue"]
@@ -17,11 +20,14 @@ def on_message(self, userdata, msg):
 # The loop to keep listening is in AstraLog
 class DataStreamReader(DataReader):
     # --- MISSION CONFIGURATION ---
-    BROKER_URL = "fb2fb70e5df845aaa8ac44ead8e3c5e1.s1.eu.hivemq.cloud"
-    PORT = 8883
-    TOPIC = "esa/astralog/telemetry"
-    USER = "students"
-    PASSWORD = "Listeningstuff26"
+    BROKER_URL = os.getenv("BROKER_URL")
+    PORT = int(os.getenv("PORT"))
+    TOPIC = os.getenv("TOPIC")
+    USER = os.getenv("USER")
+    PASSWORD = os.getenv("PASSWORD")
+
+    if not all([BROKER_URL, PORT, TOPIC, USER, PASSWORD]):
+        raise ValueError("Missing required environment variables for DataStreamReader")
 
     _client_id: str = ""
     _client: mqtt.Client
