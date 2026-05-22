@@ -21,12 +21,12 @@ def on_message(self, userdata, msg):
 class DataStreamReader(DataReader):
     # --- MISSION CONFIGURATION ---
     BROKER_URL = os.getenv("BROKER_URL")
-    PORT = int(os.getenv("PORT"))
+    PORT = int(os.getenv("PORT", 8883))
     TOPIC = os.getenv("TOPIC")
     USER = os.getenv("USER")
     PASSWORD = os.getenv("PASSWORD")
 
-    if not all([BROKER_URL, PORT, TOPIC, USER, PASSWORD]):
+    if not all([BROKER_URL, TOPIC, USER, PASSWORD]):
         raise ValueError("Missing required environment variables for DataStreamReader")
 
     _client_id: str = ""

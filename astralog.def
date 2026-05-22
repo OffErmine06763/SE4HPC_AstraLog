@@ -4,6 +4,7 @@ From: python:3.11.8-slim-bookworm
 %files
   requirements.txt /app/requirements.txt
   src /app/src
+  res /app/res
   
 %post
   apt-get update && apt-get install git -y && apt-get clean autoclean
@@ -13,6 +14,8 @@ From: python:3.11.8-slim-bookworm
 
 %environment
   export PATH=/app/venv/bin:$PATH
+  export PYTHONPATH=/app
 
 %runscript
-  /app/venv/bin/python -m src.astralog_collector --mode count --limit 100
+  cd /app
+  /app/venv/bin/python -m src.main
