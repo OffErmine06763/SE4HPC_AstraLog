@@ -13,7 +13,6 @@ def priority_to_str(p: int) -> str:
         return "MEDIUM"
     return "HIGH"
 
-
 class RuleNode:
     num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
     num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp
@@ -34,7 +33,7 @@ class BatchAnalyzer:
     _sensor_id_to_name: list[str]
 
     _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
-    _indep_rules_id: list[int]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
+    _indep_rules_id: list[list[int]]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
     _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
     _corr_rules_graph: list[RuleNode]  # graph nodes corresponding to correlation rules
     _leaf_nodes_ind: list[int]         # indexes of graph nodes that do not depend on other correlation rules
@@ -42,7 +41,7 @@ class BatchAnalyzer:
     def __init__(self):
         self._sensor_id_to_name = []
         self._rules = []
-        self._indep_rules_id = []
+        self._indep_rules_id = [[], [], []]
         self._outcomes = []
         self._corr_rules_graph = []
         self._leaf_nodes_ind = []
@@ -54,12 +53,13 @@ class BatchAnalyzer:
             node.num_ready_pred = 0
 
         # first evaluate all rules that do not depend on anything else
-        for rule_id in self._indep_rules_id:
-            rule = cast(IndependentRule, self._rules[rule_id])
-            self._outcomes[rule.id] = rule.is_violated(td.readings)
-            if self._outcomes[rule.id]:
-                all_ok = False
-                self.write_alarms(rule, td)
+        for priority in range(0, 3):
+            for rule_id in self._indep_rules_id[0]:
+                rule = cast(IndependentRule, self._rules[rule_id])
+                self._outcomes[rule.id] = rule.is_violated(td.readings)
+                if self._outcomes[rule.id]:
+                    all_ok = False
+                    self.write_alarms(rule, td)
 
         # keep a local copy of the current leaves, and a second list for the next iteration
         local_leafs: list[int] = self._leaf_nodes_ind.copy()
@@ -104,7 +104,7 @@ class BatchAnalyzer:
 
         for r in self._rules:
             if isinstance(r, IndependentRule):
-                self._indep_rules_id.append(r.id)
+                self._indep_rules_id[r.priority].append(r.id)
             else:
                 node = RuleNode(r.id)
                 self._corr_rules_graph.append(node)
