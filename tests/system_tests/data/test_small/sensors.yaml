@@ -1,0 +1,8 @@
+sensors:
+- id: TEMP-001
+  sampling_rate: 1Hz
+  unit: Celsius
+- id: TEMP-002
+  sampling_rate: 1Hz
+  unit: Celsius
+spacecraft_id: VIVII
