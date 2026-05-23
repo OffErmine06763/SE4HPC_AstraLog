@@ -364,3 +364,17 @@ def test_analyze_and_output_with_priorities():
     valid_expected = "ts1;NOMINAL;sensor1:0.6|sensor2:0.45\n"
     valid_expected += "ts4;NOMINAL;sensor1:0.7|sensor2:0.55\n"
     assert valid_output == valid_expected
+
+def test_bad_rules():
+    rules = [
+        SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
+        SimpleRule(1, "rule2", 1, 0.4, Operator.LESS),
+        LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
+        LogicalCorrelationRule(2, "rule4", Logic.OR, 0, 2)
+    ]
+
+    analyzer = BatchAnalyzer()
+    analyzer._alarms_output_file = StringIO()
+    analyzer._valid_output_file = StringIO()
+    with pytest.raises(RuntimeError):
+        analyzer.load_rules(rules)
