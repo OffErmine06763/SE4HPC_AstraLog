@@ -100,6 +100,14 @@ jobs:
       - name: Run bandit
         run: |
           bandit -r src --severity-level medium
+
+      - name: Run pip-audit
+        run: |
+          pip-audit --fail-on high
+
+      - name: Static type checking with mypy
+        run: |
+          mypy src
       
   containerize:
     needs: [ test, lint, quality ]

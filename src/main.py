@@ -3,6 +3,7 @@ from src.data_reader import DataReaderType
 from src.data_file_reader import DataFileReader
 from src.data_stream_reader import DataStreamReader
 from src.batch_manager import BatchManager
+from src.data_reader import DataReader
 
 import argparse
 
@@ -43,6 +44,8 @@ if __name__ == "__main__":
     batch_param = args.limit
 
     alog = AstraLog()
+
+    src: DataReader
 
     if data_reader_type == DataReaderType.FILE:
         src = DataFileReader()
