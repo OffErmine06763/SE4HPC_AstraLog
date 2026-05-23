@@ -17,8 +17,8 @@ def complex_rules():
         LogicalCorrelationRule(2, "and1", Logic.AND, 0, 1),
         SimpleRule(2, "simple3", 2, 0.5, Operator.GREATER),
         SimpleRule(0, "simple4", 3, 0.5, Operator.LESS),
-        LogicalCorrelationRule(0, "and2", Logic.AND, 3, 4),
-        LogicalCorrelationRule(2, "or", Logic.OR, 2, 5)
+        LogicalCorrelationRule(2, "and2", Logic.AND, 3, 4),
+        LogicalCorrelationRule(1, "or", Logic.OR, 2, 5)
     ]
 
 
@@ -47,24 +47,24 @@ def test_analyzing_batched_data(tmp_path):
     expected_valid_output = "time1;NOMINAL;sensor1:None|sensor2:None|sensor3:None|sensor4:None\n"
     expected_valid_output += "time4;NOMINAL;sensor1:0.4|sensor2:0.6|sensor3:0.4|sensor4:0.6\n"
 
-    expected_alarms_output = """time2;simple1;MEDIUM;sensor1;0.6
+    expected_alarms_output = """time2;simple3;HIGH;sensor3;0.6
+time2;simple1;MEDIUM;sensor1;0.6
 time2;simple2;LOW;sensor2;0.4
-time2;simple3;HIGH;sensor3;0.6
 time2;simple4;LOW;sensor4;0.4
 time2;and1;HIGH;sensor1,sensor2;0.6,0.4
-time2;and2;LOW;sensor3,sensor4;0.6,0.4
-time2;or;HIGH;sensor1,sensor2,sensor3,sensor4;0.6,0.4,0.6,0.4
+time2;and2;HIGH;sensor3,sensor4;0.6,0.4
+time2;or;MEDIUM;sensor1,sensor2,sensor3,sensor4;0.6,0.4,0.6,0.4
+time3;simple3;HIGH;sensor3;None
 time3;simple1;MEDIUM;sensor1;None
 time3;simple2;LOW;sensor2;None
-time3;simple3;HIGH;sensor3;None
 time3;simple4;LOW;sensor4;None
 time3;and1;HIGH;sensor1,sensor2;None,None
-time3;and2;LOW;sensor3,sensor4;None,None
-time3;or;HIGH;sensor1,sensor2,sensor3,sensor4;None,None,None,None
+time3;and2;HIGH;sensor3,sensor4;None,None
+time3;or;MEDIUM;sensor1,sensor2,sensor3,sensor4;None,None,None,None
 time5;simple1;MEDIUM;sensor1;0.6
 time5;simple2;LOW;sensor2;0.4
 time5;and1;HIGH;sensor1,sensor2;0.6,0.4
-time5;or;HIGH;sensor1,sensor2,sensor3,sensor4;0.6,0.4,0.4,0.6
+time5;or;MEDIUM;sensor1,sensor2,sensor3,sensor4;0.6,0.4,0.4,0.6
 """
 
     actual_valid_output = valid_output_file.read_text()
