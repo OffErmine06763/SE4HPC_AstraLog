@@ -61,13 +61,13 @@ class BatchAnalyzer:
                 if self._outcomes[rule.id]:
                     all_ok = False
                     self.write_alarms(rule, td)
-        for priority in range(2, -1,  -1):
              # keep a local copy of the current leaves, and a second list for the next iteration
-             local_leafs: list[int] = self._leaf_nodes_ind[priority].copy()
-             local_leafs_next: list[int] = []
+        local_leafs: list[list[int]] = self._leaf_nodes_ind.copy()
+        local_leafs_next: list[list[int]] = [[], [], []]
              # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-             while len(local_leafs) != 0:
-                 for i in local_leafs:
+        while sum(len(local_leafs[i]) for i in range(3)) != 0:
+            for priority in range(2, -1,  -1):
+                 for i in local_leafs[priority]:
                      node = self._corr_rules_graph[priority][i]
                      rule = cast(LogicalCorrelationRule, self._rules[node.id])
 
@@ -81,14 +81,14 @@ class BatchAnalyzer:
                      # check if the nodes that depend on this rule are ready to be evaluated
                      # note that the increment and compare of the counter should be done atomically when parallelizing
                      for next in node.next:
-                         next_node = self._corr_rules_graph[priority][next]
+                         next_node = self._corr_rules_graph[next[1]][next[0]]
                          next_node.num_ready_pred += 1
                          if next_node.num_ready_pred == next_node.num_pred:
-                             local_leafs_next.append(next)
+                             local_leafs_next[next[1]].append(next[0])
 
                  # swap the buffers
-                 local_leafs = local_leafs_next
-                 local_leafs_next = []
+            local_leafs = local_leafs_next
+            local_leafs_next = [[], [], []]
 
         return all_ok
 
@@ -122,13 +122,13 @@ class BatchAnalyzer:
                         raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
                     n.num_pred += 1
                     ind = mapping[rule.op1]
-                    self._corr_rules_graph[ind[1]][ind[0]].next.append(i)
+                    self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
                 if isinstance(self._rules[rule.op2], LogicalCorrelationRule):
                     if self._rules[rule.op2].priority < rule.priority:
                         raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
                     n.num_pred += 1
                     ind = mapping[rule.op2]
-                    self._corr_rules_graph[ind[1]][ind[0]].next.append(i)
+                    self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
 
                 # initial leaf nodes, to be used at the start of a new timestamp analysis
                 if n.num_pred == 0:
