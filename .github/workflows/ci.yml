@@ -103,7 +103,7 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          pip-audit --fail-on high
+          pip-audit -r requirements.txt
 
       - name: Static type checking with mypy
         run: |
