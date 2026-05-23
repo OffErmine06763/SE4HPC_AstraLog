@@ -35,59 +35,60 @@ class BatchAnalyzer:
     _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
     _indep_rules_id: list[list[int]]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules
     _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
-    _corr_rules_graph: list[RuleNode]  # graph nodes corresponding to correlation rules
-    _leaf_nodes_ind: list[int]         # indexes of graph nodes that do not depend on other correlation rules
+    _corr_rules_graph: list[list[RuleNode]]  # graph nodes corresponding to correlation rules
+    _leaf_nodes_ind: list[list[int]]         # indexes of graph nodes that do not depend on other correlation rules
 
     def __init__(self):
         self._sensor_id_to_name = []
         self._rules = []
         self._indep_rules_id = [[], [], []]
         self._outcomes = []
-        self._corr_rules_graph = []
-        self._leaf_nodes_ind = []
+        self._corr_rules_graph = [[], [], []]
+        self._leaf_nodes_ind = [[], [], []]
 
     def analyze(self, td: TimestampData) -> bool:
         all_ok = True
         self._outcomes = [False] * len(self._rules)
-        for node in self._corr_rules_graph:
-            node.num_ready_pred = 0
+        for priority in range(3):
+            for node in self._corr_rules_graph[priority]:
+                node.num_ready_pred = 0
 
         # first evaluate all rules that do not depend on anything else
-        for priority in range(0, 3):
-            for rule_id in self._indep_rules_id[0]:
+        for priority in range(2, -1,  -1):
+            for rule_id in self._indep_rules_id[priority]:
                 rule = cast(IndependentRule, self._rules[rule_id])
                 self._outcomes[rule.id] = rule.is_violated(td.readings)
                 if self._outcomes[rule.id]:
                     all_ok = False
                     self.write_alarms(rule, td)
+        for priority in range(2, -1,  -1):
+             # keep a local copy of the current leaves, and a second list for the next iteration
+             local_leafs: list[int] = self._leaf_nodes_ind[priority].copy()
+             local_leafs_next: list[int] = []
+             # if the graph is well constructed, when there are no leaves we have evaluated all the rules
+             while len(local_leafs) != 0:
+                 for i in local_leafs:
+                     node = self._corr_rules_graph[priority][i]
+                     rule = cast(LogicalCorrelationRule, self._rules[node.id])
 
-        # keep a local copy of the current leaves, and a second list for the next iteration
-        local_leafs: list[int] = self._leaf_nodes_ind.copy()
-        local_leafs_next: list[int] = []
-        # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-        while len(local_leafs) != 0:
-            for i in local_leafs:
-                node = self._corr_rules_graph[i]
-                rule = cast(LogicalCorrelationRule, self._rules[node.id])
+                     self._outcomes[rule.id] = rule.is_violated(
+                         self._outcomes[rule.op1], self._outcomes[rule.op2]
+                     )
+                     if self._outcomes[rule.id]:
+                         all_ok = False
+                         self.write_alarms(rule, td)
 
-                self._outcomes[rule.id] = rule.is_violated(
-                    self._outcomes[rule.op1], self._outcomes[rule.op2]
-                )
-                if self._outcomes[rule.id]:
-                    all_ok = False
-                    self.write_alarms(rule, td)
+                     # check if the nodes that depend on this rule are ready to be evaluated
+                     # note that the increment and compare of the counter should be done atomically when parallelizing
+                     for next in node.next:
+                         next_node = self._corr_rules_graph[priority][next]
+                         next_node.num_ready_pred += 1
+                         if next_node.num_ready_pred == next_node.num_pred:
+                             local_leafs_next.append(next)
 
-                # check if the nodes that depend on this rule are ready to be evaluated
-                # note that the increment and compare of the counter should be done atomically when parallelizing
-                for next in node.next:
-                    next_node = self._corr_rules_graph[next]
-                    next_node.num_ready_pred += 1
-                    if next_node.num_ready_pred == next_node.num_pred:
-                        local_leafs_next.append(next)
-
-            # swap the buffers
-            local_leafs = local_leafs_next
-            local_leafs_next = []
+                 # swap the buffers
+                 local_leafs = local_leafs_next
+                 local_leafs_next = []
 
         return all_ok
 
@@ -100,31 +101,38 @@ class BatchAnalyzer:
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
-        mapping: dict[int, int] = {}  # mapping from rule id to _corr_rules_graph index
+        mapping: dict[int, (int, int)] = {}  # mapping from rule id to _corr_rules_graph index
 
         for r in self._rules:
             if isinstance(r, IndependentRule):
                 self._indep_rules_id[r.priority].append(r.id)
             else:
                 node = RuleNode(r.id)
-                self._corr_rules_graph.append(node)
-                mapping[r.id] = len(self._corr_rules_graph) - 1
+                self._corr_rules_graph[r.priority].append(node)
+                mapping[r.id] = (len(self._corr_rules_graph[r.priority]) - 1, r.priority)
 
         # build the graph: i.e. set the number of predecessor nodes and the node indices of the successor nodes
-        for i in range(len(self._corr_rules_graph)):
-            n = self._corr_rules_graph[i]
-            rule = cast(LogicalCorrelationRule, self._rules[n.id])
+        for priority in range(0, 3):
+            for i in range(len(self._corr_rules_graph[priority])):
+                n = self._corr_rules_graph[priority][i]
+                rule = cast(LogicalCorrelationRule, self._rules[n.id])
 
-            if isinstance(self._rules[rule.op1], LogicalCorrelationRule):
-                n.num_pred += 1
-                self._corr_rules_graph[mapping[rule.op1]].next.append(i)
-            if isinstance(self._rules[rule.op2], LogicalCorrelationRule):
-                n.num_pred += 1
-                self._corr_rules_graph[mapping[rule.op2]].next.append(i)
+                if isinstance(self._rules[rule.op1], LogicalCorrelationRule):
+                    if self._rules[rule.op1].priority < rule.priority:
+                        raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
+                    n.num_pred += 1
+                    ind = mapping[rule.op1]
+                    self._corr_rules_graph[ind[1]][ind[0]].next.append(i)
+                if isinstance(self._rules[rule.op2], LogicalCorrelationRule):
+                    if self._rules[rule.op2].priority < rule.priority:
+                        raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
+                    n.num_pred += 1
+                    ind = mapping[rule.op2]
+                    self._corr_rules_graph[ind[1]][ind[0]].next.append(i)
 
-            # initial leaf nodes, to be used at the start of a new timestamp analysis
-            if n.num_pred == 0:
-                self._leaf_nodes_ind.append(i)
+                # initial leaf nodes, to be used at the start of a new timestamp analysis
+                if n.num_pred == 0:
+                    self._leaf_nodes_ind[rule.priority].append(i)
 
         # TODO: add validation of rules, i.e. well formed dependency graph (acyclic)
         return True
