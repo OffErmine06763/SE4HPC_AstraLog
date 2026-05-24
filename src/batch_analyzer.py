@@ -17,7 +17,7 @@ class RuleNode:
     num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
     num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp
     id: int               # this LogicCorrelationRule id
-    next: list[int]       # indexes of RuleNodes depending on this one (nodes are stored in a linear array)
+    next: list[(int, int)]       # indexes of RuleNodes depending on this one (nodes are stored in a linear array)
 
     def __init__(self, _id: int):
         self.id = _id
