@@ -62,34 +62,35 @@ class BatchAnalyzer:
                     all_ok = False
                     self.write_alarms(rule, td)
              # keep a local copy of the current leaves, and a second list for the next iteration
-        local_leafs: list[list[int]] = self._leaf_nodes_ind.copy()
+        local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
              # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-        while sum(len(local_leafs[i]) for i in range(3)) != 0:
-            for priority in range(2, -1,  -1):
-                 for i in local_leafs[priority]:
-                     node = self._corr_rules_graph[priority][i]
-                     rule = cast(LogicalCorrelationRule, self._rules[node.id])
+        for priority in range(2, -1,  -1):
+            while len(local_leafs[priority]) != 0:
+                for i in local_leafs[priority]:
+                    node = self._corr_rules_graph[priority][i]
+                    rule = cast(LogicalCorrelationRule, self._rules[node.id])
+                    self._outcomes[rule.id] = rule.is_violated(
+                        self._outcomes[rule.op1], self._outcomes[rule.op2]
+                    )
+                    if self._outcomes[rule.id]:
+                        all_ok = False
+                        self.write_alarms(rule, td)
 
-                     self._outcomes[rule.id] = rule.is_violated(
-                         self._outcomes[rule.op1], self._outcomes[rule.op2]
-                     )
-                     if self._outcomes[rule.id]:
-                         all_ok = False
-                         self.write_alarms(rule, td)
+                    # check if the nodes that depend on this rule are ready to be evaluated
+                    # note that the increment and compare of the counter should be done atomically when parallelizing
+                    for next in node.next:
+                        next_node = self._corr_rules_graph[next[1]][next[0]]
+                        next_node.num_ready_pred += 1
+                        if next_node.num_ready_pred == next_node.num_pred:
+                            local_leafs_next[next[1]].append(next[0])
 
-                     # check if the nodes that depend on this rule are ready to be evaluated
-                     # note that the increment and compare of the counter should be done atomically when parallelizing
-                     for next in node.next:
-                         next_node = self._corr_rules_graph[next[1]][next[0]]
-                         next_node.num_ready_pred += 1
-                         if next_node.num_ready_pred == next_node.num_pred:
-                             local_leafs_next[next[1]].append(next[0])
-
-                 # swap the buffers
-            local_leafs = local_leafs_next
-            local_leafs_next = [[], [], []]
-
+                # swap the buffers
+                local_leafs[priority] = local_leafs_next[priority]
+                local_leafs_next[priority] = []
+                for jj in range(priority):
+                    local_leafs[jj] += local_leafs_next[jj]
+                    local_leafs_next[jj] = []
         return all_ok
 
     def analyze_and_output(self, batch_data: list[TimestampData]):
