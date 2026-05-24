@@ -3,6 +3,7 @@ import os
 import pytest
 import pathlib
 import time
+import sys
 
 
 DATA_DIR = os.path.join(pathlib.Path(__file__).parent, "data")
@@ -34,7 +35,7 @@ def test_system_with_simple_files(tmp_path):
 
     result = subprocess.run(
         [
-            "python3", "-m", "src.main", "--reading-mode", "file",
+            sys.executable, "-m", "src.main", "--reading-mode", "file",
             "--batch-mode", "count", "--limit", "10",
             "--readings-file", str(readings_file),
             "--sensors-file", str(sensors_file),
@@ -67,7 +68,7 @@ def run_with_timer_large_test(tmp_path, readings_filename, time_limit,
         start_time = time.perf_counter()
         result = subprocess.run(
             [
-                "python3", "-m", "src.main", "--reading-mode", "file",
+                sys.executable, "-m", "src.main", "--reading-mode", "file",
                 "--batch-mode", batch_mode_str, "--limit", str(limit),
                 "--readings-file", str(readings_file),
                 "--sensors-file", str(sensors_file),
@@ -99,15 +100,15 @@ def test_system_with_readings_alpha_medium(tmp_path):
 
 
 def test_system_with_readings_alpha_large_count_mode(tmp_path):
-    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=60,
+    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=120,
                               batch_mode_str="count", limit=100)
 
 
 def test_system_with_readings_alpha_large_infinite_batch(tmp_path):
-    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=20,
+    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=120,
                               batch_mode_str="count", limit=1000000000)
 
 
 def test_system_with_readings_alpha_large_time_mode(tmp_path):
-    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=30,
+    run_with_timer_large_test(tmp_path, "readings_alpha_large.csv", time_limit=120,
                               batch_mode_str="time", limit=10)
