@@ -55,11 +55,11 @@ class BatchAnalyzer:
 
         # first evaluate all rules that do not depend on anything else
         for rule_id in self._indep_rules_id:
-            rule = cast(IndependentRule, self._rules[rule_id])
-            self._outcomes[rule.id] = rule.is_violated(td.readings)
-            if self._outcomes[rule.id]:
+            rule_independent = cast(IndependentRule, self._rules[rule_id])
+            self._outcomes[rule_independent.id] = rule_independent.is_violated(td.readings)
+            if self._outcomes[rule_independent.id]:
                 all_ok = False
-                self.write_alarms(rule, td)
+                self.write_alarms(rule_independent, td)
 
         # keep a local copy of the current leaves, and a second list for the next iteration
         local_leafs: list[int] = self._leaf_nodes_ind.copy()
@@ -165,8 +165,8 @@ class BatchAnalyzer:
             to_print.put(self._rules[rule.op1])
             to_print.put(self._rules[rule.op2])
 
-            sensor_names_to_print: list[str] = []
-            sensor_values_to_print: list[float] = []
+            sensor_names_to_print: list[str | None] = []
+            sensor_values_to_print: list[float | None] = []
 
             while not to_print.empty():
                 r = to_print.get()

@@ -73,7 +73,7 @@ class BatchManager:
             # but we can reuse those allocated at previous batches.
             if self._ts_count == len(self._cache):
                 # add entry to cache for the new timestamp, initialized with None
-                readings = [None] * sensor_count
+                readings: list[float|None] = [None] * sensor_count
                 self._cache.append(TimestampData(data.ts, readings))
             else:
                 # reuse an old slot
