@@ -1,0 +1,28 @@
+[
+    {
+        "rule_id": "S1",
+        "type": "simple",
+        "sensor_id": "TEMP-001",
+        "operator": "<",
+        "value": 50,
+        "priority": "HIGH"
+    },
+    {
+        "rule_id": "S2",
+        "type": "simple",
+        "sensor_id": "TEMP-002",
+        "operator": "<",
+        "value": 50,
+        "priority": "LOW"
+    },
+    {
+        "rule_id": "C1",
+        "type": "correlation",
+        "logic": "AND",
+        "conditions": [
+            "S1",
+            "S2"
+        ],
+        "priority": "MEDIUM"
+    }
+]
