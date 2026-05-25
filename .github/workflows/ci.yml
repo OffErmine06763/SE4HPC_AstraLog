@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+env:
+  BROKER_URL: ${{ secrets.BROKER_URL }}
+  PORT: ${{ secrets.PORT }}
+  TOPIC: ${{ secrets.TOPIC }}
+  USER: ${{ secrets.USER }}
+  PASSWORD: ${{ secrets.PASSWORD }}
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -29,32 +36,14 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
     - name: Unit tests
-      env:
-        BROKER_URL: ${{ secrets.BROKER_URL }}
-        PORT: ${{ secrets.PORT }}
-        TOPIC: ${{ secrets.TOPIC }}
-        USER: ${{ secrets.USER }}
-        PASSWORD: ${{ secrets.PASSWORD }}
       run: |
         pytest tests/unit_tests --cov=src --cov-report=term-missing --cov-fail-under=80
 
     - name: Integration tests
-      env:
-        BROKER_URL: ${{ secrets.BROKER_URL }}
-        PORT: ${{ secrets.PORT }}
-        TOPIC: ${{ secrets.TOPIC }}
-        USER: ${{ secrets.USER }}
-        PASSWORD: ${{ secrets.PASSWORD }}
       run: |
         pytest tests/integration_tests --cov=src --cov-report=term-missing
 
     - name: System tests
-      env:
-        BROKER_URL: ${{ secrets.BROKER_URL }}
-        PORT: ${{ secrets.PORT }}
-        TOPIC: ${{ secrets.TOPIC }}
-        USER: ${{ secrets.USER }}
-        PASSWORD: ${{ secrets.PASSWORD }}
       run: |
         pytest tests/system_tests --cov=src --cov-report=term-missing
 
