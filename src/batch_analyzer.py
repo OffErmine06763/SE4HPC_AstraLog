@@ -17,7 +17,7 @@ class RuleNode:
     num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
     num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp
     id: int               # this LogicCorrelationRule id
-    next: list[(int, int)]       # indexes and priorities of RuleNodes depending on this one (nodes are stored in three linear arrays)
+    next: list[tuple[int, int]]       # indexes and priorities of RuleNodes depending on this one (nodes are stored in three linear arrays)
 
     def __init__(self, _id: int):
         self.id = _id
@@ -70,13 +70,13 @@ class BatchAnalyzer:
             while len(local_leafs[priority]) != 0:
                 for i in local_leafs[priority]:
                     node = self._corr_rules_graph[priority][i]
-                    rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                    self._outcomes[rule.id] = rule.is_violated(
-                        self._outcomes[rule.op1], self._outcomes[rule.op2]
+                    log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
+                    self._outcomes[log_rule.id] = log_rule.is_violated(
+                        self._outcomes[log_rule.op1], self._outcomes[log_rule.op2]
                     )
-                    if self._outcomes[rule.id]:
+                    if self._outcomes[log_rule.id]:
                         all_ok = False
-                        self.write_alarms(rule, td)
+                        self.write_alarms(log_rule, td)
 
                     # check if the nodes that depend on this rule are ready to be evaluated
                     # note that the increment and compare of the counter should be done atomically when parallelizing
@@ -104,7 +104,7 @@ class BatchAnalyzer:
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
-        mapping: dict[int, (int, int)] = {}  # mapping from rule id (and priorities) to _corr_rules_graph index
+        mapping: dict[int, tuple[int, int]] = {}  # mapping from rule id (and priorities) to _corr_rules_graph index
 
         for r in self._rules:
             if isinstance(r, IndependentRule):
