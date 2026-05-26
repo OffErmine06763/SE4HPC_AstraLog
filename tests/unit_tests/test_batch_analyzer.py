@@ -257,11 +257,17 @@ def test_analyze_all_ok():
 
     analyzer = BatchAnalyzer()
     analyzer._alarms_output_file = StringIO()
+    analyzer._valid_output_file = StringIO()
     analyzer.load_rules(rules)
-
+    #To avoid warnings while writing to valid sensor file
+    analyzer.set_sensors(["sensor1", "sensor2"])
+    
     td = TimestampData("ts1", [0.6, 0.45])
-
-    assert analyzer.analyze(td) is True
+    
+    #All writings are done inside this function, use to write to alarms output
+    analyzer.analyze_and_output([td])
+    
+    assert analyzer.analyze(td, 0) is True
 
     output = analyzer._alarms_output_file.getvalue()
     assert output == ""
@@ -282,7 +288,10 @@ def test_analyze_rules_triggered():
 
     td = TimestampData("ts1", [0.4, 0.45])
 
-    assert analyzer.analyze(td) is False
+    #All writings are done inside this function, use to write to alarms output
+    analyzer.analyze_and_output([td])
+    
+    assert analyzer.analyze(td, 0) is False
 
     output = analyzer._alarms_output_file.getvalue()
     expected_output = "ts1;rule1;LOW;sensor1;0.4\n"
