@@ -4,7 +4,8 @@ from io import TextIOWrapper
 from src.utils import TimestampData
 from typing import cast
 from queue import Queue
-
+from time import sleep
+import threading
 
 def priority_to_str(p: int) -> str:
     if p == 0:
@@ -37,6 +38,11 @@ class BatchAnalyzer:
     _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
     _corr_rules_graph: list[list[RuleNode]]  # graph nodes corresponding to correlation rules, one list for each priority
     _leaf_nodes_ind: list[list[int]]         # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
+    
+    _writing_thread: threading.Thread
+    _stop_writing_event: threading.Event
+    _alarms_ready: Queue[tuple[Rule, int]]
+    _valid_data_ready: Queue[int]
 
     def __init__(self):
         self._sensor_id_to_name = []
@@ -45,6 +51,10 @@ class BatchAnalyzer:
         self._outcomes = []
         self._corr_rules_graph = [[], [], []]
         self._leaf_nodes_ind = [[], [], []]
+        
+        self._stop_writing_event = threading.Event()
+        self._alarms_ready = Queue()
+        self._valid_data_ready = Queue()
 
     def analyze(self, td: TimestampData) -> bool:
         all_ok = True
@@ -96,11 +106,29 @@ class BatchAnalyzer:
         return all_ok
 
     def analyze_and_output(self, batch_data: list[TimestampData]):
-        for td in batch_data:
+        self._stop_writing_event.clear()
+        self._writing_thread = threading.Thread(target = self.writing_loop, args = (batch_data, ))
+        self._writing_thread.start()
+        for i, td in enumerate(batch_data):
             ok = self.analyze(td)
             if ok:
-                self.write_valid_data(td)
+                self._valid_data_ready.put(i)
+        self._stop_writing_event.set()
+        self._writing_thread.join()
 
+
+    def writing_loop(self, data):
+        while True:
+            if not self._alarms_ready.empty():
+                pass
+            elif not  self._valid_data_ready.empty():
+                index = self._valid_data_ready.get()
+                self.write_valid_data(data[index])
+            elif self._stop_writing_event.is_set():
+                break
+
+
+    
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
