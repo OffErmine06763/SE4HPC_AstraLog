@@ -43,7 +43,7 @@ class BatchAnalyzer:
     _stop_writing_event: threading.Event
     _alarms_ready: Queue[tuple[Rule, int]]
     _valid_data_ready: Queue[int]
-
+    ALARM_QUEUE_TIMEOUT = 0.002
     def __init__(self):
         self._sensor_id_to_name = []
         self._rules = []
@@ -56,7 +56,7 @@ class BatchAnalyzer:
         self._alarms_ready = Queue()
         self._valid_data_ready = Queue()
 
-    def analyze(self, td: TimestampData) -> bool:
+    def analyze(self, td: TimestampData, td_index: int) -> bool:
         all_ok = True
         self._outcomes = [False] * len(self._rules)
         for priority in range(3):
@@ -70,7 +70,8 @@ class BatchAnalyzer:
                 self._outcomes[rule.id] = rule.is_violated(td.readings)
                 if self._outcomes[rule.id]:
                     all_ok = False
-                    self.write_alarms(rule, td)
+                    #instead of writing directly, just add the index with rule to the queue
+                    self._alarms_ready.put((self._rules[rule_id], td_index))
         # keep a local copy of the current leaves, and a second list for the next iteration
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
@@ -86,7 +87,7 @@ class BatchAnalyzer:
                     )
                     if self._outcomes[log_rule.id]:
                         all_ok = False
-                        self.write_alarms(log_rule, td)
+                        self._alarms_ready.put((self._rules[node.id], td_index))
 
                     # check if the nodes that depend on this rule are ready to be evaluated
                     # note that the increment and compare of the counter should be done atomically when parallelizing
@@ -109,8 +110,9 @@ class BatchAnalyzer:
         self._stop_writing_event.clear()
         self._writing_thread = threading.Thread(target = self.writing_loop, args = (batch_data, ))
         self._writing_thread.start()
+        #loop over timestamps and its indeces so that we can pass them to the writes which already have batch_data
         for i, td in enumerate(batch_data):
-            ok = self.analyze(td)
+            ok = self.analyze(td, i)
             if ok:
                 self._valid_data_ready.put(i)
         self._stop_writing_event.set()
@@ -120,15 +122,19 @@ class BatchAnalyzer:
     def writing_loop(self, data):
         while True:
             if not self._alarms_ready.empty():
-                pass
+                rule, index = self._alarms_ready.get()
+                self.write_alarms(rule, data[index])
             elif not  self._valid_data_ready.empty():
                 index = self._valid_data_ready.get()
                 self.write_valid_data(data[index])
+            #thanks to the if-elif-else block, this is only taken is both queues are empty, the writing therefore finishes before exiting
             elif self._stop_writing_event.is_set():
                 break
-
-
+            #this solution with sleep seems less complicated than using nested timeouts for both queues 
+            else:
+                sleep(self.ALARM_QUEUE_TIMEOUT)
     
+
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
 
