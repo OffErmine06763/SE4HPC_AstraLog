@@ -9,8 +9,6 @@ from queue import Queue
 def on_message(self, userdata, msg):
     queue = userdata["queue"]
     queue.put(msg.payload.decode("utf-8"))
-    # self._message_payload = msg.payload.decode('utf-8')
-    # self._message_event.set()  # unblock waiting code
 
 
 # This class should just handle the connection to the stream and listen for one sensor reading at a time
@@ -29,7 +27,9 @@ class DataStreamReader(DataReader):
                  port,
                  topic,
                  user,
-                 password
+                 password,
+                 use_tls=True,
+                 timeout=20
                  ):
         self._client_id = f"Station_{uuid.uuid4().hex[:6]}"
         self.broker_url = broker_url
@@ -37,18 +37,25 @@ class DataStreamReader(DataReader):
         self.topic = topic
         self.user = user
         self.password = password
+        self.use_tls = use_tls
+        self.timeout = timeout
+
+        print(f'DataStreamReader created, will connect to: broker_url={broker_url}')
+        print(f'   port={self.port}, topic={self.topic}, user={self.user}, password={self.password}')
+        print(f'   use_tls={self.use_tls}, timeout={self.timeout}')
 
 
     def read_one(self) -> tuple[bool, str]:
         try:
-            payload = self._message_queue.get(timeout=5)
+            payload = self._message_queue.get(timeout=self.timeout)
+
+            if payload == 'EOS':  # meant for testing to mark the end of stream
+                return False, ''
+
             return True, payload
         except Exception:
             # TODO: handle timeout
-            pass
-
-        # TODO: handle connection issues / end of stream
-        return False, ""
+            return False, ''
 
     def open(self) -> bool:
         # init client
@@ -67,7 +74,10 @@ class DataStreamReader(DataReader):
             )
 
         self._client.username_pw_set(self.user, self.password)
-        self._client.tls_set_context(ssl.create_default_context())
+
+        if self.use_tls:
+            self._client.tls_set_context(ssl.create_default_context())
+
         self._client.on_message = on_message
 
         # init connection

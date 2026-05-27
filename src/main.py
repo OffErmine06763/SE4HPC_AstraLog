@@ -63,6 +63,12 @@ if __name__ == "__main__":
         topic = os.getenv("TOPIC")
         user = os.getenv("USER")
         password = os.getenv("PASSWORD")
+        use_tls = os.getenv("USE_TLS")
+
+        if use_tls is None:
+            use_tls = True
+        else:
+            use_tls = bool(use_tls == 'True' or use_tls == 'true')
 
         if broker_url is None:
             raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
@@ -80,7 +86,8 @@ if __name__ == "__main__":
             raise ValueError("DataStreamReader: missing PASSWORD environment variable")
 
         src = DataStreamReader(
-            broker_url=broker_url, port=port, topic=topic, user=user, password=password
+            broker_url=broker_url, port=port, topic=topic, user=user, password=password,
+            use_tls=use_tls
         )
         alog.set_data_source(src)
 

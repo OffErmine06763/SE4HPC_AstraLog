@@ -13,6 +13,7 @@ def priority_to_str(p: int) -> str:
         return "MEDIUM"
     return "HIGH"
 
+
 class RuleNode:
     num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
     num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp

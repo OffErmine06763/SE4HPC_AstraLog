@@ -123,10 +123,11 @@ class BatchManager:
         # TODO: handle IO errors
 
         # move the last element at front
-        self._cache[0].ts = self._cache[self._ts_count - 1].ts
-        self._cache[0].readings = self._cache[self._ts_count - 1].readings.copy()
-        self._count = sum(x is not None for x in self._cache[0].readings)
-        self._ts_count = 1
+        if self._ts_count > 0:
+            self._cache[0].ts = self._cache[self._ts_count - 1].ts
+            self._cache[0].readings = self._cache[self._ts_count - 1].readings.copy()
+            self._count = sum(x is not None for x in self._cache[0].readings)
+            self._ts_count = 1
 
         self.reset_flush_timer()
 

@@ -156,8 +156,6 @@ class AstraLog:
             if data is None:  # data is invalid
                 continue
 
-            # print(data_json)
-
             filename = self._batch_manager.add_to_batch(data, self._sensor_count)
             if filename != "":
                 self._batches_ready.put(filename)
