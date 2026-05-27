@@ -3,7 +3,7 @@ from io import StringIO
 from src.batch_analyzer import priority_to_str, RuleNode, BatchAnalyzer
 from src.rule import Rule, SimpleRule, LogicalCorrelationRule, Operator, Logic
 from src.utils import TimestampData
-
+from time import time
 
 @pytest.fixture(autouse=True)
 def reset_rule_ids():
@@ -259,15 +259,11 @@ def test_analyze_all_ok():
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
     analyzer.load_rules(rules)
-    #To avoid warnings while writing to valid sensor file
-    analyzer.set_sensors(["sensor1", "sensor2"])
     
     td = TimestampData("ts1", [0.6, 0.45])
     
-    #All writings are done inside this function, use to write to alarms output
-    analyzer.analyze_and_output([td])
     
-    assert analyzer.analyze(td, 0) is True
+    assert analyzer.analyze(td) is True
 
     output = analyzer._alarms_output_file.getvalue()
     assert output == ""
@@ -287,11 +283,8 @@ def test_analyze_rules_triggered():
     analyzer.set_sensors(["sensor1", "sensor2"])
 
     td = TimestampData("ts1", [0.4, 0.45])
-
-    #All writings are done inside this function, use to write to alarms output
-    analyzer.analyze_and_output([td])
     
-    assert analyzer.analyze(td, 0) is False
+    assert analyzer.analyze(td) is False
 
     output = analyzer._alarms_output_file.getvalue()
     expected_output = "ts1;rule1;LOW;sensor1;0.4\n"
@@ -427,3 +420,58 @@ def test_bad_rules():
     analyzer._valid_output_file = StringIO()
     with pytest.raises(RuntimeError):
         analyzer.load_rules(rules)
+
+def test_analyze_parallel():
+    rules = [
+        SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
+        SimpleRule(0, "rule2", 1, 0.4, Operator.LESS),
+        LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
+        LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
+    ]
+    
+    #create many correlated and independant rules which can be run in parallel
+    for i in range(5, 10):
+        rule_num = "rule" + str(i)
+        and_num = "and" + str(i - 5)
+        rules.append(SimpleRule(0, rule_num, 1, 0.6, Operator.LESS))
+        rules.append(SimpleRule(1, rule_num, 1, 0.6, Operator.LESS))
+        rules.append(LogicalCorrelationRule(1, and_num, Logic.OR, 0, 2))
+        rules.append(LogicalCorrelationRule(0, and_num, Logic.OR, 0, 2))
+
+    analyzer = BatchAnalyzer(4)
+    analyzer._alarms_output_file = StringIO()
+    analyzer.load_rules(rules)
+    analyzer.set_sensors(["sensor1", "sensor2"])
+
+    td = TimestampData("ts1", [0.4, 0.45])
+    
+    assert analyzer.analyze(td) is False
+
+    output = analyzer._alarms_output_file.getvalue()
+    
+    
+    expected_output = ""
+    
+    #simple medium -> simple low -> correlated medium -> correlated low
+
+    for i in range(5, 10):
+        rule_num = "rule" + str(i)
+        expected_output += "ts1;" + rule_num +";MEDIUM;sensor2;0.45\n"
+    
+    expected_output += "ts1;rule1;LOW;sensor1;0.4\n"
+    for i in range(5, 10):
+        rule_num = "rule" + str(i)
+        expected_output += "ts1;" + rule_num +";LOW;sensor2;0.45\n"
+    
+
+    for i in range(5, 10):
+        and_num = "and" + str(i - 5)
+        expected_output += "ts1;" + and_num +";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+    
+    expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+    
+    for i in range(5, 10):
+        and_num = "and" + str(i - 5)
+        expected_output += "ts1;" + and_num +";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+
+    assert output == expected_output
