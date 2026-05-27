@@ -123,7 +123,7 @@ class AstraLog:
         ok = self.prepare_before_start()
         if not ok:
             return
-        
+
         data_reader = self._data_reader
         assert data_reader is not None  # narrows for mypy static analysis
 

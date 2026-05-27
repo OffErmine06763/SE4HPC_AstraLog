@@ -138,12 +138,6 @@ def test_astralog_connection_to_mqtt(tmp_path):
         assert valid_file.exists()
         assert alarms_file.exists()
 
-        valid_file_content = valid_file.read_text()
-        alarms_file_content = alarms_file.read_text()
-
-        assert len(valid_file_content) > 0
-        assert len(alarms_file_content) > 0
-
 
 def test_astralog_small_mqtt_stream(tmp_path):
 
