@@ -78,11 +78,10 @@ class BatchAnalyzer:
             nonlocal all_ok
             rule = cast(IndependentRule, self._rules[rule_id])
             result = rule.is_violated(td.readings)
-            with lock:
-                outcomes[rule.id] = result
-                if result:
-                    all_ok = False
-                    self.write_alarms(rule, td)
+            outcomes[rule.id] = result
+            if result:
+                all_ok = False
+                self.write_alarms(rule, td)
     
         def eval_corr(leaf_idx, priority):
             #declare it non-local so that this function can change its state
@@ -235,14 +234,10 @@ class BatchAnalyzer:
                 "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file"
             )
             return
-
-        self._alarms_output_file.write(
-            f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
-        )
+        #cummulate the strings inside the variables and perform one atomic write -> avoid undefined behaviour inbetween the threads (garbage write)
+        towrite = f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
         if isinstance(rule, IndependentRule):
-            self._alarms_output_file.write(
-                f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}"
-            )
+            towrite += f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}"
         elif isinstance(rule, LogicalCorrelationRule):
             to_print: Queue[Rule] = Queue()
             to_print.put(self._rules[rule.op1])
@@ -259,16 +254,16 @@ class BatchAnalyzer:
                 elif isinstance(r, LogicalCorrelationRule):
                     to_print.put(self._rules[r.op1])
                     to_print.put(self._rules[r.op2])
-
             for name in sensor_names_to_print[:-1]:
-                self._alarms_output_file.write(f"{name},")
-            self._alarms_output_file.write(f"{sensor_names_to_print[-1]};")
+                towrite += f"{name},"
+            towrite += f"{sensor_names_to_print[-1]};"
 
             for value in sensor_values_to_print[:-1]:
-                self._alarms_output_file.write(f"{value},")
-            self._alarms_output_file.write(f"{sensor_values_to_print[-1]}")
+                towrite += f"{value},"
+            towrite += f"{sensor_values_to_print[-1]}"
+        towrite += "\n"
 
-        self._alarms_output_file.write("\n")
+        self._alarms_output_file.write(towrite)
 
     def set_valid_output_file(self, filename: str):
         self._valid_output_file = open(filename, "w")
