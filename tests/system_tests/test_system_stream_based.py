@@ -32,7 +32,7 @@ def publish_messages(port, sensor_readings: list[SensorReading]):
         mqtt.CallbackAPIVersion.VERSION2,
         protocol=mqtt.MQTTv5,
     )
-    
+
     client.connect("localhost", port)
 
     for reading in sensor_readings:
@@ -53,7 +53,7 @@ def publish_eos(port):
         mqtt.CallbackAPIVersion.VERSION2,
         protocol=mqtt.MQTTv5,
     )
-    
+
     client.connect("localhost", port)
     client.publish("test/topic", "EOS")
     client.disconnect()
@@ -79,7 +79,7 @@ def run_astralog(output_dir, valid_file, alarms_file, sensors_file, rules_file):
             timeout=60
         )
 
-    print(f'ASTRALOG PROCESS WITHIN THREAD STOPPED')
+    print('ASTRALOG PROCESS WITHIN THREAD STOPPED')
 
     print(f'ASTRALOG OUTPUT:\n{result.stdout.decode("ascii")}')
     print(f'ASTRALOG STDERR:\n{result.stderr.decode("ascii")}')
@@ -90,12 +90,12 @@ def run_astralog(output_dir, valid_file, alarms_file, sensors_file, rules_file):
 
 def test_astralog_connection_to_mqtt(tmp_path):
 
-    print(f'TEST STARTED')
+    print('TEST STARTED')
 
     with DockerContainer("eclipse-mosquitto:2") \
             .with_exposed_ports(1883) as broker:
 
-        print(f'WITH DOCKER -- inside already')
+        print('WITH DOCKER -- inside already')
 
         port = broker.get_exposed_port(1883)
 
@@ -106,24 +106,23 @@ def test_astralog_connection_to_mqtt(tmp_path):
         os.environ["USER"] = "user"  # will not be used
         os.environ["PASSWORD"] = "pass"  # will not be used
 
-
         output_dir = tmp_path / "batches"
         sensors_file = os.path.join(DATA_DIR, "test_small", "sensors.yaml")
         rules_file = os.path.join(DATA_DIR, "test_small", "rules.json")
         alarms_file = tmp_path / "alarms.txt"
         valid_file = tmp_path / "valid.txt"
 
-        t = threading.Thread(target=run_astralog, 
+        t = threading.Thread(target=run_astralog,
                              args=[output_dir, valid_file, alarms_file, sensors_file, rules_file])
         t.start()
 
-        print(f'THREAD STARTED FOR ASTRALOG')
+        print('THREAD STARTED FOR ASTRALOG')
 
         time.sleep(5)
 
         publish_messages(int(port), [SensorReading('time1', 'TEMP-001', 10.0),
                                      SensorReading('time2', 'TEMP-001', 60.0)])
-        print(f'MESSAGES PUBLISHED')
+        print('MESSAGES PUBLISHED')
 
         time.sleep(5)
 
@@ -134,7 +133,7 @@ def test_astralog_connection_to_mqtt(tmp_path):
         t.join(timeout=10)
         assert not t.is_alive()  # thread stopped already (due to EOS)
 
-        print(f'ASTRALOG THREAD JOINED')
+        print('ASTRALOG THREAD JOINED')
 
         assert valid_file.exists()
         assert alarms_file.exists()
@@ -148,12 +147,12 @@ def test_astralog_connection_to_mqtt(tmp_path):
 
 def test_astralog_small_mqtt_stream(tmp_path):
 
-    print(f'TEST STARTED')
+    print('TEST STARTED')
 
     with DockerContainer("eclipse-mosquitto:2") \
             .with_exposed_ports(1883) as broker:
 
-        print(f'WITH DOCKER -- inside already')
+        print('WITH DOCKER -- inside already')
 
         port = broker.get_exposed_port(1883)
 
@@ -170,11 +169,11 @@ def test_astralog_small_mqtt_stream(tmp_path):
         alarms_file = tmp_path / "alarms.txt"
         valid_file = tmp_path / "valid.txt"
 
-        t = threading.Thread(target=run_astralog, 
+        t = threading.Thread(target=run_astralog,
                              args=[output_dir, valid_file, alarms_file, sensors_file, rules_file])
         t.start()
 
-        print(f'THREAD STARTED FOR ASTRALOG')
+        print('THREAD STARTED FOR ASTRALOG')
 
         time.sleep(5)
 
@@ -192,7 +191,7 @@ def test_astralog_small_mqtt_stream(tmp_path):
                                      SensorReading('4', 'TEMP-002', 40.),
                                      SensorReading('5', 'TEMP-001', 99.),
                                      SensorReading('5', 'TEMP-002', 99.)])
-        print(f'MESSAGES PUBLISHED')
+        print('MESSAGES PUBLISHED')
 
         time.sleep(5)
 
@@ -203,7 +202,7 @@ def test_astralog_small_mqtt_stream(tmp_path):
         t.join(timeout=10)
         assert not t.is_alive()  # thread stopped already (due to EOS signal)
 
-        print(f'ASTRALOG THREAD JOINED')
+        print('ASTRALOG THREAD JOINED')
 
         expected_alarms_output = os.path.join(DATA_DIR, "test_small", "expected_alarm_output.txt")
         expected_valid_output = os.path.join(DATA_DIR, "test_small", "expected_valid_output.txt")
@@ -212,15 +211,14 @@ def test_astralog_small_mqtt_stream(tmp_path):
         assert_files_equal(expected_valid_output, valid_file)
 
 
-
 def test_astralog_disconnects_on_timeout(tmp_path):
 
-    print(f'TEST STARTED')
+    print('TEST STARTED')
 
     with DockerContainer("eclipse-mosquitto:2") \
             .with_exposed_ports(1883) as broker:
 
-        print(f'WITH DOCKER -- inside already')
+        print('WITH DOCKER -- inside already')
 
         port = broker.get_exposed_port(1883)
 
@@ -237,24 +235,24 @@ def test_astralog_disconnects_on_timeout(tmp_path):
         alarms_file = tmp_path / "alarms.txt"
         valid_file = tmp_path / "valid.txt"
 
-        t = threading.Thread(target=run_astralog, 
+        t = threading.Thread(target=run_astralog,
                              args=[output_dir, valid_file, alarms_file, sensors_file, rules_file])
         t.start()
 
-        print(f'THREAD STARTED FOR ASTRALOG')
+        print('THREAD STARTED FOR ASTRALOG')
 
         time.sleep(5)
 
         publish_messages(int(port), [SensorReading('time1', 'TEMP-001', 10.0),
                                      SensorReading('time2', 'TEMP-001', 60.0)])
-        print(f'MESSAGES PUBLISHED')
+        print('MESSAGES PUBLISHED')
 
         time.sleep(20)
 
         t.join(timeout=10)
         assert not t.is_alive()  # thread stopped already (due to timeout)
 
-        print(f'ASTRALOG THREAD JOINED')
+        print('ASTRALOG THREAD JOINED')
 
         assert valid_file.exists()
         assert alarms_file.exists()
@@ -264,4 +262,3 @@ def test_astralog_disconnects_on_timeout(tmp_path):
 
         assert len(valid_file_content) > 0
         assert len(alarms_file_content) > 0
-

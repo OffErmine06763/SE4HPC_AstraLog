@@ -44,7 +44,6 @@ class DataStreamReader(DataReader):
         print(f'   port={self.port}, topic={self.topic}, user={self.user}, password={self.password}')
         print(f'   use_tls={self.use_tls}, timeout={self.timeout}')
 
-
     def read_one(self) -> tuple[bool, str]:
         try:
             payload = self._message_queue.get(timeout=self.timeout)

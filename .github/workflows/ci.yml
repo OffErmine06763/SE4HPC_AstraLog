@@ -95,10 +95,11 @@ jobs:
       - name: Run pip-audit
         run: |
           pip-audit -r requirements.txt
+          pip-audit -r requirements-dev.txt
 
       - name: Static type checking with mypy
         run: |
-          mypy src
+          mypy src --check-untyped-defs
       
   containerize:
     needs: [ test, lint, quality ]

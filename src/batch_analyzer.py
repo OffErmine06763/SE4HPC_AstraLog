@@ -15,10 +15,17 @@ def priority_to_str(p: int) -> str:
 
 
 class RuleNode:
-    num_pred: int         # number of nodes this rule depends on (0, 1 or 2)
-    num_ready_pred: int   # number of nodes this rule depends on that have been evaluated at this timestamp
-    id: int               # this LogicCorrelationRule id
-    next: list[tuple[int, int]]       # indexes and priorities of RuleNodes depending on this one (nodes are stored in three linear arrays)
+    # number of nodes this rule depends on (0, 1 or 2)
+    num_pred: int
+
+    # number of nodes this rule depends on that have been evaluated at this timestamp
+    num_ready_pred: int
+
+    # this LogicCorrelationRule id
+    id: int
+
+    # indexes and priorities of RuleNodes depending on this one (nodes are stored in three linear arrays)
+    next: list[tuple[int, int]]
 
     def __init__(self, _id: int):
         self.id = _id
@@ -33,11 +40,20 @@ class BatchAnalyzer:
 
     _sensor_id_to_name: list[str]
 
-    _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
-    _indep_rules_id: list[list[int]]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules, one list for each priority
-    _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp
-    _corr_rules_graph: list[list[RuleNode]]  # graph nodes corresponding to correlation rules, one list for each priority
-    _leaf_nodes_ind: list[list[int]]         # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
+    # since rules have progressive ids, this can be indexed using rule.id
+    _rules: list[Rule]
+
+    # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules, one list for each priority
+    _indep_rules_id: list[list[int]]
+
+    # outcome of rule i (both index and id) at the current timestamp
+    _outcomes: list[bool]
+
+    # graph nodes corresponding to correlation rules, one list for each priority
+    _corr_rules_graph: list[list[RuleNode]]
+
+    # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
+    _leaf_nodes_ind: list[list[int]]
 
     def __init__(self):
         self._sensor_id_to_name = []
@@ -47,14 +63,15 @@ class BatchAnalyzer:
         self._corr_rules_graph = [[], [], []]
         self._leaf_nodes_ind = [[], [], []]
 
-    def analyze(self, td: TimestampData) -> bool:
-        all_ok = True
+    def reset_before_analysis(self):
         self._outcomes = [False] * len(self._rules)
         for priority in range(3):
             for node in self._corr_rules_graph[priority]:
                 node.num_ready_pred = 0
 
-        # first evaluate all rules that do not depend on anything else
+    def evaluate_independent_rules(self, td: TimestampData) -> bool:
+        all_ok = True
+
         for priority in range(2, -1,  -1):
             for rule_id in self._indep_rules_id[priority]:
                 rule = cast(IndependentRule, self._rules[rule_id])
@@ -62,11 +79,21 @@ class BatchAnalyzer:
                 if self._outcomes[rule.id]:
                     all_ok = False
                     self.write_alarms(rule, td)
+
+        return all_ok
+
+    def analyze(self, td: TimestampData) -> bool:
+        all_ok = True
+        self.reset_before_analysis()
+
+        # first evaluate all rules that do not depend on anything else
+        all_ok = self.evaluate_independent_rules(td)
+
         # keep a local copy of the current leaves, and a second list for the next iteration
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
         # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-        #evaluate first layers of each graph with the highest priority
+        # evaluate first layers of each graph with the highest priority
         for priority in range(2, -1,  -1):
             while len(local_leafs[priority]) != 0:
                 for i in local_leafs[priority]:
@@ -90,7 +117,7 @@ class BatchAnalyzer:
                 # swap the buffers
                 local_leafs[priority] = local_leafs_next[priority]
                 local_leafs_next[priority] = []
-                #keep the leafs of the lower priorities which were untouched
+                # keep the leafs of the lower priorities which were untouched
                 for jj in range(priority):
                     local_leafs[jj] += local_leafs_next[jj]
                     local_leafs_next[jj] = []
@@ -122,15 +149,19 @@ class BatchAnalyzer:
                 rule = cast(LogicalCorrelationRule, self._rules[n.id])
 
                 if isinstance(self._rules[rule.op1], LogicalCorrelationRule):
-                    #each correlated rule can only depend on a rule of lower priority
+                    # each correlated rule can only depend on a rule of lower priority
                     if self._rules[rule.op1].priority < rule.priority:
-                        raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
+                        raise RuntimeError(
+                            f"Correlation rule with id {str(n.id)} depends on a correlation rule with higher priority"
+                        )
                     n.num_pred += 1
                     ind = mapping[rule.op1]
                     self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
                 if isinstance(self._rules[rule.op2], LogicalCorrelationRule):
                     if self._rules[rule.op2].priority < rule.priority:
-                        raise RuntimeError("Correlation rule with id " + str(n.id) + " depends on a correlation rule with higher priority")
+                        raise RuntimeError(
+                            f"Correlation rule with id {str(n.id)} depends on a correlation rule with higher priority"
+                        )
                     n.num_pred += 1
                     ind = mapping[rule.op2]
                     self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))

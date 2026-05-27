@@ -365,6 +365,7 @@ def test_analyze_and_output_with_priorities():
     valid_expected += "ts4;NOMINAL;sensor1:0.7|sensor2:0.55\n"
     assert valid_output == valid_expected
 
+
 def test_analyze_and_output_with_independat_correlations():
     rules = [
         SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),

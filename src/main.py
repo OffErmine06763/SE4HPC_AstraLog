@@ -63,16 +63,16 @@ if __name__ == "__main__":
         topic = os.getenv("TOPIC")
         user = os.getenv("USER")
         password = os.getenv("PASSWORD")
-        use_tls = os.getenv("USE_TLS")
+        use_tls_env = os.getenv("USE_TLS")
 
-        if use_tls is None:
+        if use_tls_env is None:
             use_tls = True
         else:
-            use_tls = bool(use_tls == 'True' or use_tls == 'true')
+            use_tls = bool(use_tls_env == 'True' or use_tls_env == 'true')
 
         if broker_url is None:
             raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
-        
+
         if port is None:
             raise ValueError("DataStreamReader: missing PORT environment variable")
 
