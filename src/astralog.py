@@ -123,6 +123,9 @@ class AstraLog:
         ok = self.prepare_before_start()
         if not ok:
             return
+        
+        data_reader = self._data_reader
+        assert data_reader is not None  # narrows for mypy static analysis
 
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
@@ -139,7 +142,7 @@ class AstraLog:
                 print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
-            valid, data_raw = self._data_reader.read_one()
+            valid, data_raw = data_reader.read_one()
             if not valid:  # EOF or connection issues
                 break
 
@@ -148,7 +151,7 @@ class AstraLog:
             # tho i dont like the idea of moving this in the reader, i'd rather have the reader
             # to be a generic source of data, you know division of responsibilities
             data: SensorReading | None
-            if self._data_reader.type() == DataReaderType.STREAM:
+            if data_reader.type() == DataReaderType.STREAM:
                 data = validate_sensor_data_json(data_raw, self._sensor_ids)
             else:
                 data = validate_sensor_data_csv(data_raw, self._sensor_ids)
@@ -160,7 +163,7 @@ class AstraLog:
             if filename != "":
                 self._batches_ready.put(filename)
 
-        self._data_reader.close()
+        data_reader.close()
 
         # flush what is left in the batch manager
         filename = self._batch_manager.get_flush_filename()
