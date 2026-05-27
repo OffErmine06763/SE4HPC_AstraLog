@@ -6,6 +6,11 @@ from src.batch_manager import BatchManager
 from src.data_reader import DataReader
 
 import argparse
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 # Example command (from root dir):
@@ -52,7 +57,31 @@ if __name__ == "__main__":
         src.set_data_file(args.readings_file)
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
-        src = DataStreamReader()
+        # --- MISSION CONFIGURATION ---
+        broker_url = os.getenv("BROKER_URL")
+        port = int(os.getenv("PORT", 8883))
+        topic = os.getenv("TOPIC")
+        user = os.getenv("USER")
+        password = os.getenv("PASSWORD")
+
+        if broker_url is None:
+            raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
+        
+        if port is None:
+            raise ValueError("DataStreamReader: missing PORT environment variable")
+
+        if topic is None:
+            raise ValueError("DataStreamReader: missing TOPIC environment variable")
+
+        if user is None:
+            raise ValueError("DataStreamReader: missing USER environment variable")
+
+        if password is None:
+            raise ValueError("DataStreamReader: missing PASSWORD environment variable")
+
+        src = DataStreamReader(
+            broker_url=broker_url, port=port, topic=topic, user=user, password=password
+        )
         alog.set_data_source(src)
 
     alog.set_sensors(args.sensors_file)

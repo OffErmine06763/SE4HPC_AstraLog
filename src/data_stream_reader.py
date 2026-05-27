@@ -4,10 +4,7 @@ import paho.mqtt.client as mqtt
 import ssl
 import uuid
 from queue import Queue
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
 def on_message(self, userdata, msg):
     queue = userdata["queue"]
@@ -19,31 +16,6 @@ def on_message(self, userdata, msg):
 # This class should just handle the connection to the stream and listen for one sensor reading at a time
 # The loop to keep listening is in AstraLog
 class DataStreamReader(DataReader):
-    # --- MISSION CONFIGURATION ---
-    broker_url = os.getenv("BROKER_URL")
-    port = int(os.getenv("PORT", 8883))
-    topic = os.getenv("TOPIC")
-    user = os.getenv("USER")
-    password = os.getenv("PASSWORD")
-
-    if broker_url is None:
-        raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
-    
-    if topic is None:
-        raise ValueError("DataStreamReader: missing TOPIC environment variable")
-
-    if user is None:
-        raise ValueError("DataStreamReader: missing USER environment variable")
-
-    if password is None:
-        raise ValueError("DataStreamReader: missing PASSWORD environment variable")
-
-    BROKER_URL: str = broker_url
-    PORT: int = port
-    TOPIC: str = topic
-    USER: str = user
-    PASSWORD: str = password
-
     _client_id: str = ""
     _client: mqtt.Client
     _connected: bool = False
@@ -52,8 +24,20 @@ class DataStreamReader(DataReader):
     # _message_payload: str = ""
     _message_queue: Queue[str] = Queue()
 
-    def __init__(self):
+    def __init__(self,
+                 broker_url,
+                 port,
+                 topic,
+                 user,
+                 password
+                 ):
         self._client_id = f"Station_{uuid.uuid4().hex[:6]}"
+        self.broker_url = broker_url
+        self.port = port
+        self.topic = topic
+        self.user = user
+        self.password = password
+
 
     def read_one(self) -> tuple[bool, str]:
         try:
@@ -82,15 +66,15 @@ class DataStreamReader(DataReader):
                 userdata={"queue": self._message_queue},
             )
 
-        self._client.username_pw_set(DataStreamReader.USER, DataStreamReader.PASSWORD)
+        self._client.username_pw_set(self.user, self.password)
         self._client.tls_set_context(ssl.create_default_context())
         self._client.on_message = on_message
 
         # init connection
-        rc = self._client.connect(DataStreamReader.BROKER_URL, DataStreamReader.PORT)
+        rc = self._client.connect(self.broker_url, self.port)
         if rc == 0:
-            print(f"DataStreamReader: connected to {DataStreamReader.BROKER_URL}")
-            self._client.subscribe(DataStreamReader.TOPIC)
+            print(f"DataStreamReader: connected to {self.broker_url}")
+            self._client.subscribe(self.topic)
         else:
             print(f"DataStreamReader: connection error {rc}")
             return False
