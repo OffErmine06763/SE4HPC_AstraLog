@@ -3,9 +3,10 @@ from src.rule import Rule, IndependentRule, LogicalCorrelationRule
 from io import TextIOWrapper
 from src.utils import TimestampData
 from typing import cast
-from queue import Queue
+from queue import Queue, Empty
 from time import sleep
 import threading
+from concurrent.futures import ThreadPoolExecutor, wait
 
 def priority_to_str(p: int) -> str:
     if p == 0:
@@ -41,10 +42,12 @@ class BatchAnalyzer:
     
     _writing_thread: threading.Thread
     _stop_writing_event: threading.Event
-    _alarms_ready: Queue[tuple[Rule, int]]
     _valid_data_ready: Queue[int]
+    _executor: ThreadPoolExecutor
+
     ALARM_QUEUE_TIMEOUT = 0.002
-    def __init__(self):
+    
+    def __init__(self, np = 1):
         self._sensor_id_to_name = []
         self._rules = []
         self._indep_rules_id = [[], [], []]
@@ -56,63 +59,101 @@ class BatchAnalyzer:
         self._alarms_ready = Queue()
         self._valid_data_ready = Queue()
 
-    def analyze(self, td: TimestampData, td_index: int) -> bool:
+        #managment of pool of np reusable threads
+        self._executor = ThreadPoolExecutor(max_workers=np)
+
+    def analyze(self, td: TimestampData) -> bool:
         all_ok = True
-        self._outcomes = [False] * len(self._rules)
+        outcomes = [False] * len(self._rules)
+        ready_pred = {}
+        lock = threading.Lock()
+    
+        # reset local pred counts
         for priority in range(3):
             for node in self._corr_rules_graph[priority]:
-                node.num_ready_pred = 0
-
-        # first evaluate all rules that do not depend on anything else
-        for priority in range(2, -1,  -1):
-            for rule_id in self._indep_rules_id[priority]:
-                rule = cast(IndependentRule, self._rules[rule_id])
-                self._outcomes[rule.id] = rule.is_violated(td.readings)
-                if self._outcomes[rule.id]:
+                ready_pred[node.id] = 0
+        
+        #define functions to submit to the threads
+        def eval_independent(rule_id):
+            nonlocal all_ok
+            rule = cast(IndependentRule, self._rules[rule_id])
+            result = rule.is_violated(td.readings)
+            with lock:
+                outcomes[rule.id] = result
+                if result:
                     all_ok = False
-                    #instead of writing directly, just add the index with rule to the queue
-                    self._alarms_ready.put((self._rules[rule_id], td_index))
-        # keep a local copy of the current leaves, and a second list for the next iteration
+                    self.write_alarms(rule, td)
+    
+        def eval_corr(leaf_idx, priority):
+            #declare it non-local so that this function can change its state
+            nonlocal all_ok
+            node = self._corr_rules_graph[priority][leaf_idx]
+            log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
+            op1 = outcomes[log_rule.op1]
+            op2 = outcomes[log_rule.op2]
+            result = log_rule.is_violated(op1, op2)
+            outcomes[log_rule.id] = result
+            if result:
+                all_ok = False
+                self.write_alarms(log_rule, td)
+            next_ready = []
+            for successor in node.next:
+                s_idx, s_priority = successor
+                next_node = self._corr_rules_graph[s_priority][s_idx]
+                ready_pred[next_node.id] += 1
+                if ready_pred[next_node.id] == next_node.num_pred:
+                    next_ready.append((s_idx, s_priority))
+            return next_ready
+    
+        # parallel independent rules per priority
+        for priority in range(2, -1, -1):
+            futures = [
+                self._executor.submit(eval_independent, rule_id)
+                for rule_id in self._indep_rules_id[priority]
+            ]
+            #barrier to wait for independant rules of this priority to finish
+            wait(futures)
+    
+        # parallel correlation rules layer by layer
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
-        # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-        #evaluate first layers of each graph with the highest priority
-        for priority in range(2, -1,  -1):
-            while len(local_leafs[priority]) != 0:
-                for i in local_leafs[priority]:
-                    node = self._corr_rules_graph[priority][i]
-                    log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                    self._outcomes[log_rule.id] = log_rule.is_violated(
-                        self._outcomes[log_rule.op1], self._outcomes[log_rule.op2]
-                    )
-                    if self._outcomes[log_rule.id]:
-                        all_ok = False
-                        self._alarms_ready.put((self._rules[node.id], td_index))
-
-                    # check if the nodes that depend on this rule are ready to be evaluated
-                    # note that the increment and compare of the counter should be done atomically when parallelizing
-                    for next in node.next:
-                        next_node = self._corr_rules_graph[next[1]][next[0]]
-                        next_node.num_ready_pred += 1
-                        if next_node.num_ready_pred == next_node.num_pred:
-                            local_leafs_next[next[1]].append(next[0])
-
-                # swap the buffers
+    
+        for priority in range(2, -1, -1):
+            while local_leafs[priority]:
+                #evaluate current priorities in the current layer, return following nodes
+                futures = [
+                    self._executor.submit(eval_corr, leaf_idx, priority)
+                    for leaf_idx in local_leafs[priority]
+                ]
+                #synchronise
+                wait(futures)
+                #assigne the leafs for the next iteration
+                for f in futures:
+                    for s_idx, s_priority in f.result():
+                        local_leafs_next[s_priority].append(s_idx)
+                #swap buffers
                 local_leafs[priority] = local_leafs_next[priority]
                 local_leafs_next[priority] = []
-                #keep the leafs of the lower priorities which were untouched
+                #keep leafs of the lower priorities
                 for jj in range(priority):
                     local_leafs[jj] += local_leafs_next[jj]
                     local_leafs_next[jj] = []
+    
         return all_ok
-
+    
     def analyze_and_output(self, batch_data: list[TimestampData]):
+        """
+        * One threads starts, which loops and when ready, writes valid data (overlap with analysis)
+        * Inside the analysis, np threads is spawned 
+        * Each of this thread evaluates either one independant rule of given priority or one layer of correlated rules
+        * The actual overlap happens when the alarms have to be written (thanks to GIL)
+        """
         self._stop_writing_event.clear()
         self._writing_thread = threading.Thread(target = self.writing_loop, args = (batch_data, ))
         self._writing_thread.start()
         #loop over timestamps and its indeces so that we can pass them to the writes which already have batch_data
         for i, td in enumerate(batch_data):
-            ok = self.analyze(td, i)
+            ok = self.analyze(td)
             if ok:
                 self._valid_data_ready.put(i)
         self._stop_writing_event.set()
@@ -121,18 +162,14 @@ class BatchAnalyzer:
 
     def writing_loop(self, data):
         while True:
-            if not self._alarms_ready.empty():
-                rule, index = self._alarms_ready.get()
-                self.write_alarms(rule, data[index])
-            elif not  self._valid_data_ready.empty():
-                index = self._valid_data_ready.get()
+            try:
+                index = self._valid_data_ready.get(timeout=self.ALARM_QUEUE_TIMEOUT)
                 self.write_valid_data(data[index])
-            #thanks to the if-elif-else block, this is only taken is both queues are empty, the writing therefore finishes before exiting
-            elif self._stop_writing_event.is_set():
-                break
-            #this solution with sleep seems less complicated than using nested timeouts for both queues 
-            else:
-                sleep(self.ALARM_QUEUE_TIMEOUT)
+            except Empty:
+                if self._stop_writing_event.is_set():
+                    break
+                else:
+                    continue
     
 
     def load_rules(self, rules: list[Rule]) -> bool:
@@ -249,3 +286,5 @@ class BatchAnalyzer:
             self._alarms_output_file.close()
         if not self._valid_output_file.closed:
             self._valid_output_file.close()
+        #shut down the executor before leaving
+        self._executor.shutdown(wait=True)
