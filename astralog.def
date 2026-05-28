@@ -18,4 +18,13 @@ From: python:3.11.8-slim-bookworm
 
 %runscript
   cd /app
-  /app/venv/bin/python -m src.main
+  /app/venv/bin/python -m src.main \
+    --reading-mode file \
+    --batch-mode count \
+    --limit 100 \
+    --readings-file res/readings_alpha_large.csv \
+    --sensors-file res/sensors_alpha.yaml \
+    --rules-file res/rules_alpha.json \
+    --output-dir output_collector \
+    --alarms-output-file alarms-output.txt \
+    --valid-output-file valid_output.txt
