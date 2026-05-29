@@ -232,7 +232,7 @@ class BatchAnalyzer:
     def write_alarms(self, rule: Rule, td: TimestampData):
         #same in this function as above
         if self._alarms_output_file is None or self._alarms_output_file.closed:
-            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
+            print("WARNING BatchAnalyzer: did not provide an output file for alarm readings, use set_alarms_output_file")
             return
         towrite = f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
         if isinstance(rule, IndependentRule):

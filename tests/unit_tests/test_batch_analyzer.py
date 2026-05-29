@@ -88,7 +88,7 @@ def test_write_alarms_file_closed(capsys):
     captured_output = capsys.readouterr().out
 
     assert captured_output == \
-        "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file\n"
+        "WARNING BatchAnalyzer: did not provide an output file for alarm readings, use set_alarms_output_file\n"
 
 
 def test_write_alarms_file_simple_rule():
