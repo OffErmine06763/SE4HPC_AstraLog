@@ -77,9 +77,10 @@ class TestPriorityStepDifferenceRule:
     @given(
         readings_value,
         st.floats(min_value=0.01, max_value=1e6, allow_nan=False, allow_infinity=False),
+        st.floats(min_value=1.01, max_value=10., allow_nan=False, allow_infinity=False)
     )
-    def test_violate_operator_greater(self, reading, delta):
-        step = delta / 2  # step is strictly less than delta
+    def test_violate_operator_greater(self, reading, delta, step_division):
+        step = delta / step_division  # step is strictly less than delta
         rule = StepDifferenceRule(1, "rule1", 0, step, Operator.GREATER)
         rule.is_violated([reading])
         assert rule.is_violated([reading + delta])
@@ -87,9 +88,10 @@ class TestPriorityStepDifferenceRule:
     @given(
         readings_value,
         st.floats(min_value=0.01, max_value=1e6, allow_nan=False, allow_infinity=False),
+        st.floats(min_value=1.01, max_value=10., allow_nan=False, allow_infinity=False)
     )
-    def test_violate_operator_less(self, reading, delta):
-        step = delta / 2  # step is strictly less than delta
+    def test_violate_operator_less(self, reading, delta, step_division):
+        step = delta / step_division  # step is strictly less than delta
         rule = StepDifferenceRule(1, "rule1", 0, step, Operator.LESS)
         rule.is_violated([reading])
         assert rule.is_violated([reading - delta])
