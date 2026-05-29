@@ -259,11 +259,13 @@ def test_analyze_all_ok():
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
     analyzer.load_rules(rules)
+    analyzer.set_sensors(["sensor1", "sensor2"])
     
     td = TimestampData("ts1", [0.6, 0.45])
     
     
-    assert analyzer.analyze(td) is True
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is True
 
     output = analyzer._alarms_output_file.getvalue()
     assert output == ""
@@ -284,7 +286,8 @@ def test_analyze_rules_triggered():
 
     td = TimestampData("ts1", [0.4, 0.45])
     
-    assert analyzer.analyze(td) is False
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is False
 
     output = analyzer._alarms_output_file.getvalue()
     expected_output = "ts1;rule1;LOW;sensor1;0.4\n"
@@ -428,9 +431,9 @@ def test_analyze_parallel():
         LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
         LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
     ]
-    
     #create many correlated and independant rules which can be run in parallel
-    for i in range(5, 10):
+    N_max = 1000
+    for i in range(5, N_max):
         rule_num = "rule" + str(i)
         and_num = "and" + str(i - 5)
         rules.append(SimpleRule(0, rule_num, 1, 0.6, Operator.LESS))
@@ -444,8 +447,8 @@ def test_analyze_parallel():
     analyzer.set_sensors(["sensor1", "sensor2"])
 
     td = TimestampData("ts1", [0.4, 0.45])
-    
-    assert analyzer.analyze(td) is False
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is False
 
     output = analyzer._alarms_output_file.getvalue()
     
@@ -454,23 +457,23 @@ def test_analyze_parallel():
     
     #simple medium -> simple low -> correlated medium -> correlated low
 
-    for i in range(5, 10):
+    for i in range(5, N_max):
         rule_num = "rule" + str(i)
         expected_output += "ts1;" + rule_num +";MEDIUM;sensor2;0.45\n"
     
     expected_output += "ts1;rule1;LOW;sensor1;0.4\n"
-    for i in range(5, 10):
+    for i in range(5, N_max):
         rule_num = "rule" + str(i)
         expected_output += "ts1;" + rule_num +";LOW;sensor2;0.45\n"
     
 
-    for i in range(5, 10):
+    for i in range(5, N_max):
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num +";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
     
     expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
     
-    for i in range(5, 10):
+    for i in range(5, N_max):
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num +";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
 
