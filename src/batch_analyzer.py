@@ -15,10 +15,18 @@ def priority_to_str(p: int) -> str:
         return "MEDIUM"
     return "HIGH"
 
+
 class RuleNode:
+    # number of nodes this rule depends on (0, 1 or 2)
     num_pred: int
+
+    # number of nodes this rule depends on that have been evaluated at this timestamp
     num_ready_pred: int
+
+    # this LogicCorrelationRule id
     id: int
+
+    # indexes and priorities of RuleNodes depending on this one (nodes are stored in three linear arrays)
     next: list[tuple[int, int]]
 
     def __init__(self, _id: int):
@@ -46,17 +54,37 @@ class BatchAnalyzer:
     _valid_output_file: TextIOWrapper
     _alarms_output_file: TextIOWrapper
     _sensor_id_to_name: list[str]
-    _rules: list[Rule]                 # since rules have progressive ids, this can be indexed using rule.id
-    _outcomes: list[bool]              # outcome of rule i (both index and id) at the current timestamp         
-    _indep_rules_id: list[list[int]]         # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules, one list for each priority
-    _corr_rules_graph: list[list[RuleNode]]  # graph nodes corresponding to correlation rules, one list for each priority
-    _leaf_nodes_ind: list[list[int]]         # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
+    # since rules have progressive ids, this can be indexed using rule.id
+    _rules: list[Rule]
+
+    # id of the rule type 1 2 and 3, equivalently those are their indexes in _rules, one list for each priority
+    _indep_rules_id: list[list[int]]
+
+    # outcome of rule i (both index and id) at the current timestamp
+    _outcomes: list[bool]
+
+    # graph nodes corresponding to correlation rules, one list for each priority
+    _corr_rules_graph: list[list[RuleNode]]
+
+    # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
+    _leaf_nodes_ind: list[list[int]]
+    
     _writing_thread: threading.Thread
+    
     _stop_writing_event: threading.Event
+    
+    #queue of valid data ready to be written by the writing loop
     _valid_data_ready: Queue[int]
+    
+    #counter for the timestamp number in the analysis
     _counter: int
+    
+    #queue of alamrs ready to be written by the writing loop
     _alarm_data_ready: Queue[(int, int)]
+    
     _executor: ProcessPoolExecutor
+    
+    #for testing moved into the object
     _all_ok: bool
 
     #how long the writing loop sleeps if both queues are empty and _stop_writing_event is not set
@@ -149,6 +177,7 @@ class BatchAnalyzer:
 
                 local_leafs[priority] = local_leafs_next[priority]
                 local_leafs_next[priority] = []
+                # keep the leafs of the lower priorities which were untouched
                 for jj in range(priority):
                     local_leafs[jj] += local_leafs_next[jj]
                     local_leafs_next[jj] = []
@@ -210,6 +239,7 @@ class BatchAnalyzer:
                         n.num_pred += 1
                         ind = mapping[op]
                         self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
+                # initial leaf nodes, to be used at the start of a new timestamp analysis
                 if n.num_pred == 0:
                     self._leaf_nodes_ind[rule.priority].append(i)
 
