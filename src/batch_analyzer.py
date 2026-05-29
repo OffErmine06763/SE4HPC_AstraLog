@@ -258,14 +258,20 @@ class BatchAnalyzer:
         self._alarms_output_file.write(towrite)
 
     def set_valid_output_file(self, filename: str):
-        if self._valid_output_file and not self._valid_output_file.closed:
-            self._valid_output_file.close()
-        self._valid_output_file = open(filename, "w")
+        try:
+            if self._valid_output_file and not self._valid_output_file.closed:
+                self._valid_output_file.close()
+            self._valid_output_file = open(filename, "w")
+        except OSError as e:
+            raise RuntimeError(f"Failed to open alarms output file '{filename}': {e}") from e
 
     def set_alarms_output_file(self, filename: str):
-        if self._alarms_output_file and not self._alarms_output_file.closed:
-            self._alarms_output_file.close()
-        self._alarms_output_file = open(filename, "w")
+        try:
+            if self._alarms_output_file and not self._alarms_output_file.closed:
+                self._alarms_output_file.close()
+            self._alarms_output_file = open(filename, "w")
+        except OSError as e:
+            raise RuntimeError(f"Failed to open alarms output file '{filename}': {e}") from e
 
     def set_sensors(self, sensor_id_to_name: list[str]):
         self._sensor_id_to_name = sensor_id_to_name
