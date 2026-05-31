@@ -114,6 +114,67 @@ class BatchAnalyzer:
         ctx = multiprocessing.get_context('spawn')
         self._executor = ProcessPoolExecutor(max_workers=np, mp_context=ctx)
 
+    def _eval_independent_rules(self, td: TimestampData, priority: int) -> None:
+        # this submits the rule evaluation to the processes
+        # inside the array, there are the results of the evaluation (what the eval_independent_worker returns)
+        futures = [
+            self._executor.submit(
+                eval_independent_worker,
+                rule_id,
+                cast(IndependentRule, self._rules[rule_id]),
+                td.readings,
+            )
+            for rule_id in self._indep_rules_id[priority]
+        ]
+        for f in futures:
+            # for each evaluation, retrieve results
+            rule_id, result, updated_rule = f.result()
+            # since the processes get their own copy of everything, rules need to be update in case they change state
+            self._rules[rule_id] = updated_rule
+            self._outcomes[rule_id] = result
+            if result:
+                self._all_ok = False
+                # put the alarms to the alarm queue for the writing loop
+                self._alarm_data_ready.put((rule_id, self._counter))
+
+    def _eval_corr_rules(
+        self, priority: int, local_leafs: list[list[int]], local_leafs_next: list[list[int]], ready_pred: dict
+    ) -> None:
+        while local_leafs[priority]:
+            futures_logical = []
+            for leaf_idx in local_leafs[priority]:
+                node = self._corr_rules_graph[priority][leaf_idx]
+                log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
+                futures_logical.append(self._executor.submit(
+                    eval_corr_worker,
+                    leaf_idx,
+                    node.id,
+                    log_rule,
+                    self._outcomes[log_rule.op1],
+                    self._outcomes[log_rule.op2]
+                ))
+
+            # since the processes apparently cannot change state of the object, post-process everything on the main thread
+            for f_l in futures_logical:
+                leaf_idx, rule_id, result = f_l.result()
+                self._outcomes[rule_id] = result
+                if result:
+                    self._all_ok = False
+                    self._alarm_data_ready.put((rule_id, self._counter))
+                node = self._corr_rules_graph[priority][leaf_idx]
+                for succesor in node.next:
+                    next_node = self._corr_rules_graph[succesor[1]][succesor[0]]
+                    ready_pred[next_node.id] += 1
+                    if ready_pred[next_node.id] == next_node.num_pred:
+                        local_leafs_next[succesor[1]].append(succesor[0])
+
+            local_leafs[priority] = local_leafs_next[priority]
+            local_leafs_next[priority] = []
+            # keep the leafs of the lower priorities which were untouched
+            for jj in range(priority):
+                local_leafs[jj] += local_leafs_next[jj]
+                local_leafs_next[jj] = []
+
     def analyze(self, td: TimestampData) -> bool:
         self._all_ok = True
         self._outcomes = [False] * len(self._rules)
@@ -125,65 +186,12 @@ class BatchAnalyzer:
                 ready_pred[node.id] = 0
 
         for priority in range(2, -1, -1):
-            # this submits the rule evaluation to the processes
-            # inside the array, there are the results of the evaluation (what the eval_independent_worker returns)
-            futures = [
-                self._executor.submit(
-                    eval_independent_worker,
-                    rule_id,
-                    cast(IndependentRule, self._rules[rule_id]),
-                    td.readings,
-                )
-                for rule_id in self._indep_rules_id[priority]
-            ]
-            for f in futures:
-                # for each evaluation, retrieve results
-                rule_id, result, updated_rule = f.result()
-                # since the processes get their own copy of everything, rules need to be update in case they change state
-                self._rules[rule_id] = updated_rule
-                self._outcomes[rule_id] = result
-                if result:
-                    self._all_ok = False
-                    # put the alarms to the alarm queue for the writing loop
-                    self._alarm_data_ready.put((rule_id, self._counter))
+            self._eval_independent_rules(td, priority)
 
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
         for priority in range(2, -1, -1):
-            while local_leafs[priority]:
-                futures_logical = []
-                for leaf_idx in local_leafs[priority]:
-                    node = self._corr_rules_graph[priority][leaf_idx]
-                    log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                    futures_logical.append(self._executor.submit(
-                        eval_corr_worker,
-                        leaf_idx,
-                        node.id,
-                        log_rule,
-                        self._outcomes[log_rule.op1],
-                        self._outcomes[log_rule.op2]
-                    ))
-
-                # since the processes apparently cannot change state of the object, post-process everything on the main thread
-                for f_l in futures_logical:
-                    leaf_idx, rule_id, result = f_l.result()
-                    self._outcomes[rule_id] = result
-                    if result:
-                        self._all_ok = False
-                        self._alarm_data_ready.put((rule_id, self._counter))
-                    node = self._corr_rules_graph[priority][leaf_idx]
-                    for succesor in node.next:
-                        next_node = self._corr_rules_graph[succesor[1]][succesor[0]]
-                        ready_pred[next_node.id] += 1
-                        if ready_pred[next_node.id] == next_node.num_pred:
-                            local_leafs_next[succesor[1]].append(succesor[0])
-
-                local_leafs[priority] = local_leafs_next[priority]
-                local_leafs_next[priority] = []
-                # keep the leafs of the lower priorities which were untouched
-                for jj in range(priority):
-                    local_leafs[jj] += local_leafs_next[jj]
-                    local_leafs_next[jj] = []
+            self._eval_corr_rules(priority, local_leafs, local_leafs_next, ready_pred)
 
         return self._all_ok
 
