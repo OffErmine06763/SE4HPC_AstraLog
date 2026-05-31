@@ -38,14 +38,14 @@ class RuleNode:
 #define these to functions to pass to the processes to run the rules' evaluation in parallel
 
 def eval_independent_worker(
-    rule_id: int, rule: IndependentRule, readings: list[float]
+    rule_id: int, rule: IndependentRule, readings: list[float | None]
 ) -> tuple[int, bool, IndependentRule]:
     result = rule.is_violated(readings)
     return rule_id, result, rule  # return mutated rule to preserve state
 
 def eval_corr_worker(
-    leaf_idx: int, rule_id: int, rule: Rule, op1: bool, op2: bool
-) -> tuple[int, int, int, bool]:
+    leaf_idx: int, rule_id: int, rule: LogicalCorrelationRule, op1: bool, op2: bool
+) -> tuple[int, int, bool]:
     result = rule.is_violated(op1, op2)
     return leaf_idx, rule_id, result
 
@@ -80,7 +80,7 @@ class BatchAnalyzer:
     _counter: int
     
     #queue of alamrs ready to be written by the writing loop
-    _alarm_data_ready: Queue[(int, int)]
+    _alarm_data_ready: Queue[tuple[int, int]]
     
     _executor: ProcessPoolExecutor
     
@@ -103,8 +103,6 @@ class BatchAnalyzer:
         self._valid_data_ready = Queue()
         self._alarm_data_ready = Queue()
         self._counter = 0
-        self._valid_output_file = None
-        self._alarms_output_file = None
         self._all_ok = True
         #start the pool of processes here, less overhead
         ctx = multiprocessing.get_context('spawn')
@@ -145,14 +143,13 @@ class BatchAnalyzer:
 
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
-
         for priority in range(2, -1, -1):
             while local_leafs[priority]:
-                futures = []
+                futures_logical = []
                 for leaf_idx in local_leafs[priority]:
                     node = self._corr_rules_graph[priority][leaf_idx]
                     log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                    futures.append(self._executor.submit(
+                    futures_logical.append(self._executor.submit(
                         eval_corr_worker,
                         leaf_idx,
                         node.id,
@@ -162,8 +159,8 @@ class BatchAnalyzer:
                     ))
 
                 # since the processes apparently cannot change state of the object, post-process everything on the main thread
-                for f in futures:
-                    leaf_idx, rule_id, result = f.result()
+                for f_l in futures_logical:
+                    leaf_idx, rule_id, result = f_l.result()
                     self._outcomes[rule_id] = result
                     if result:
                         self._all_ok = False
@@ -272,7 +269,7 @@ class BatchAnalyzer:
             to_print.put(self._rules[rule.op1])
             to_print.put(self._rules[rule.op2])
             sensor_names: list[str] = []
-            sensor_values: list[float] = []
+            sensor_values: list[float | None] = []
             while not to_print.empty():
                 r = to_print.get()
                 if isinstance(r, IndependentRule):
