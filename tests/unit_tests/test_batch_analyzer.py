@@ -3,9 +3,9 @@ from io import StringIO
 from src.batch_analyzer import priority_to_str, RuleNode, BatchAnalyzer
 from src.rule import Rule, SimpleRule, LogicalCorrelationRule, Operator, Logic
 from src.utils import TimestampData
-from time import time
 
 @pytest.fixture(autouse=True)
+
 def reset_rule_ids():
     """Reset class-level IDs so tests are deterministic."""
     Rule._next_id = 0
@@ -260,10 +260,10 @@ def test_analyze_all_ok():
     analyzer._valid_output_file = StringIO()
     analyzer.load_rules(rules)
     analyzer.set_sensors(["sensor1", "sensor2"])
-    
+
     td = TimestampData("ts1", [0.6, 0.45])
-    
-    
+
+
     analyzer.analyze_and_output([td])
     assert analyzer._all_ok is True
 
@@ -432,7 +432,7 @@ def test_analyze_parallel():
         LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
         LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
     ]
-    #create many correlated and independant rules which can be run in parallel
+    # create many correlated and independant rules which can be run in parallel
     N_max = 1000
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
@@ -452,28 +452,28 @@ def test_analyze_parallel():
     assert analyzer._all_ok is False
 
     output = analyzer._alarms_output_file.getvalue()
-    
-    
+
+
     expected_output = ""
-    
-    #simple medium -> simple low -> correlated medium -> correlated low
+
+    # simple medium -> simple low -> correlated medium -> correlated low
 
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
-        expected_output += "ts1;" + rule_num +";MEDIUM;sensor2;0.45\n"
-    
+        expected_output += "ts1;" + rule_num + ";MEDIUM;sensor2;0.45\n"
+
     expected_output += "ts1;rule1;LOW;sensor1;0.4\n"
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
-        expected_output += "ts1;" + rule_num +";LOW;sensor2;0.45\n"
-    
+        expected_output += "ts1;" + rule_num + ";LOW;sensor2;0.45\n"
+
 
     for i in range(5, N_max):
         and_num = "and" + str(i - 5)
-        expected_output += "ts1;" + and_num +";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
-    
+        expected_output += "ts1;" + and_num + ";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+
     expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
-    
+
     for i in range(5, N_max):
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num +";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"

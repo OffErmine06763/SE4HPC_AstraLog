@@ -29,16 +29,16 @@ class AstraLog:
 
     # this is synchronized
     _batches_ready: Queue[str]
-    
+
     # number of processes for the batch analyzer
     _np: int
 
     ERASE_BATCHES = True
     BATCH_QUEUE_LOOP_TIMEOUT = 2
-    
+
     def __init__(self):
         env = os.environ.get('ASTRALOG_NUM_THREADS')
-        if env != None:
+        if env is not None:
             self._np = int(env)
         else:
             self._np = 1

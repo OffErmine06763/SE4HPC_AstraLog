@@ -5,10 +5,12 @@ from time import sleep
 from src.utils import TimestampData
 from typing import cast
 from queue import Queue
-import threading, multiprocessing
+import threading
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
 def priority_to_str(p: int) -> str:
+
     if p == 0:
         return "LOW"
     if p == 1:
@@ -35,17 +37,19 @@ class RuleNode:
         self.num_ready_pred = 0
         self.next = []
 
-#define these to functions to pass to the processes to run the rules' evaluation in parallel
+# define these to functions to pass to the processes to run the rules' evaluation in parallel
 
 def eval_independent_worker(
     rule_id: int, rule: IndependentRule, readings: list[float | None]
 ) -> tuple[int, bool, IndependentRule]:
+
     result = rule.is_violated(readings)
     return rule_id, result, rule  # return mutated rule to preserve state
 
 def eval_corr_worker(
     leaf_idx: int, rule_id: int, rule: LogicalCorrelationRule, op1: bool, op2: bool
-) -> tuple[int, int, bool]:
+) ->tuple[int, int, bool]:
+
     result = rule.is_violated(op1, op2)
     return leaf_idx, rule_id, result
 
@@ -68,46 +72,46 @@ class BatchAnalyzer:
 
     # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
     _leaf_nodes_ind: list[list[int]]
-    
+
     _writing_thread: threading.Thread
-    
+
     _stop_writing_event: threading.Event
-    
-    #queue of valid data ready to be written by the writing loop
+
+    # queue of valid data ready to be written by the writing loop
     _valid_data_ready: Queue[int]
-    
-    #counter for the timestamp number in the analysis
+
+    # counter for the timestamp number in the analysis
     _counter: int
-    
-    #queue of alamrs ready to be written by the writing loop
+
+    # queue of alamrs ready to be written by the writing loop
     _alarm_data_ready: Queue[tuple[int, int]]
-    
+
     _executor: ProcessPoolExecutor
-    
-    #for testing moved into the object
+
+    # for testing moved into the object
     _all_ok: bool
 
-    #how long the writing loop sleeps if both queues are empty and _stop_writing_event is not set
+    # how long the writing loop sleeps if both queues are empty and _stop_writing_event is not set
     ALARM_QUEUE_TIMEOUT = 0.0002
 
     def __init__(self, np: int = 1):
-        #np -> number of processes to evaluate rules
+        # np -> number of processes to evaluate rules
         self._sensor_id_to_name = []
         self._rules = []
         self._outcomes = []
         self._indep_rules_id = [[], [], []]
         self._corr_rules_graph = [[], [], []]
         self._leaf_nodes_ind = [[], [], []]
-        
+
         self._stop_writing_event = threading.Event()
         self._valid_data_ready = Queue()
         self._alarm_data_ready = Queue()
         self._counter = 0
         self._all_ok = True
-        #start the pool of processes here, less overhead
+        # start the pool of processes here, less overhead
         ctx = multiprocessing.get_context('spawn')
         self._executor = ProcessPoolExecutor(max_workers=np, mp_context=ctx)
-        
+
     def analyze(self, td: TimestampData) -> bool:
         self._all_ok = True
         self._outcomes = [False] * len(self._rules)
@@ -119,8 +123,8 @@ class BatchAnalyzer:
                 ready_pred[node.id] = 0
 
         for priority in range(2, -1, -1):
-            #this submits the rule evaluation to the processes
-            #inside the array, there are the results of the evaluation (what the eval_independent_worker returns)
+            # this submits the rule evaluation to the processes
+            # inside the array, there are the results of the evaluation (what the eval_independent_worker returns)
             futures = [
                 self._executor.submit(
                     eval_independent_worker,
@@ -131,14 +135,14 @@ class BatchAnalyzer:
                 for rule_id in self._indep_rules_id[priority]
             ]
             for f in futures:
-                #for each evaluation, retrieve results
+                # for each evaluation, retrieve results
                 rule_id, result, updated_rule = f.result()
-                #since the processes get their own copy of everything, rules need to be update in case they change state
+                # since the processes get their own copy of everything, rules need to be update in case they change state
                 self._rules[rule_id] = updated_rule
                 self._outcomes[rule_id] = result
                 if result:
                     self._all_ok = False
-                    #put the alarms to the alarm queue for the writing loop
+                    # put the alarms to the alarm queue for the writing loop
                     self._alarm_data_ready.put((rule_id, self._counter))
 
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
@@ -182,11 +186,11 @@ class BatchAnalyzer:
         return self._all_ok
 
     def analyze_and_output(self, batch_data: list[TimestampData]):
-        #set counter, because the writing loop needs to know the index of the timestamp it's supposed to write
+        # set counter, because the writing loop needs to know the index of the timestamp it's supposed to write
         self._counter = 0
-        #unset the event from previous runs
+        # unset the event from previous runs
         self._stop_writing_event.clear()
-        #start the writing loop
+        # start the writing loop
         self._writing_thread = threading.Thread(target=self.writing_loop, args=(batch_data,))
         self._writing_thread.start()
         for td in batch_data:
@@ -198,11 +202,11 @@ class BatchAnalyzer:
         self._writing_thread.join()
 
     def writing_loop(self, data: list[TimestampData]):
-        #input data->TimeStamps
-        #checks if both queues are empty, only then checks the event
-        #with two queues, this solution seems better than the one with try...except blocks
+        # input data->TimeStamps
+        # checks if both queues are empty, only then checks the event
+        # with two queues, this solution seems better than the one with try...except blocks
         while True:
-            if not  self._valid_data_ready.empty():
+            if not self._valid_data_ready.empty():
                 index = self._valid_data_ready.get()
                 self.write_valid_data(data[index])
             elif not self._alarm_data_ready.empty():
@@ -244,9 +248,9 @@ class BatchAnalyzer:
         return True
 
     def write_valid_data(self, td: TimestampData):
-        #this function now performs a single atomic write
-        #this is better for the IO parallelization
-        #first assemble the whole string, then write
+        # this function now performs a single atomic write
+        # this is better for the IO parallelization
+        # first assemble the whole string, then write
         if self._valid_output_file is None or self._valid_output_file.closed:
             print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
             return
@@ -257,7 +261,7 @@ class BatchAnalyzer:
         self._valid_output_file.write(f"{td.ts};NOMINAL;{readings}\n")
 
     def write_alarms(self, rule: Rule, td: TimestampData):
-        #same in this function as above
+        # same in this function as above
         if self._alarms_output_file is None or self._alarms_output_file.closed:
             print("WARNING BatchAnalyzer: did not provide an output file for alarm readings, use set_alarms_output_file")
             return
@@ -286,16 +290,12 @@ class BatchAnalyzer:
 
     def set_valid_output_file(self, filename: str):
         try:
-            if self._valid_output_file and not self._valid_output_file.closed:
-                self._valid_output_file.close()
             self._valid_output_file = open(filename, "w")
         except OSError as e:
-            raise RuntimeError(f"Failed to open alarms output file '{filename}': {e}") from e
+            raise RuntimeError(f"Failed to open valid data output file '{filename}': {e}") from e
 
     def set_alarms_output_file(self, filename: str):
         try:
-            if self._alarms_output_file and not self._alarms_output_file.closed:
-                self._alarms_output_file.close()
             self._alarms_output_file = open(filename, "w")
         except OSError as e:
             raise RuntimeError(f"Failed to open alarms output file '{filename}': {e}") from e
