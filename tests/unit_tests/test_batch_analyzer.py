@@ -424,6 +424,7 @@ def test_bad_rules():
     with pytest.raises(RuntimeError):
         analyzer.load_rules(rules)
 
+
 def test_analyze_parallel():
     rules = [
         SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
@@ -468,8 +469,8 @@ def test_analyze_parallel():
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num + ";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
     expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
-   
-   for i in range(5, N_max):
+
+    for i in range(5, N_max):
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num + ";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
 
