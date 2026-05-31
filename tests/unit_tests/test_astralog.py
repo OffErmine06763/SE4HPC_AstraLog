@@ -108,3 +108,21 @@ def test_atralog_start_fails_without_sensors(capsys):
 
     assert "AstraLog: provide sensors configuration using AstraLog.set_sensors" \
         in output
+
+# ------------------------------------
+# Number of processes
+# ------------------------------------
+
+def test_astralog_set_env_np():
+    env = os.environ.get("ASTRALOG_NUM_THREADS")
+    os.environ["ASTRALOG_NUM_THREADS"] = "4"
+    astralog = AstraLog()
+    assert astralog._np == 4
+    #return the state of the variable
+    if env != None:
+        os.environ["ASTRALOG_NUM_THREADS"] = env
+    else:
+        os.environ["ASTRALOG_NUM_THREADS"] = ""
+
+
+
