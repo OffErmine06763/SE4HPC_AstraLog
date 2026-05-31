@@ -4,8 +4,8 @@ from src.batch_analyzer import priority_to_str, RuleNode, BatchAnalyzer
 from src.rule import Rule, SimpleRule, LogicalCorrelationRule, Operator, Logic
 from src.utils import TimestampData
 
-@pytest.fixture(autouse=True)
 
+@pytest.fixture(autouse=True)
 def reset_rule_ids():
     """Reset class-level IDs so tests are deterministic."""
     Rule._next_id = 0
@@ -263,7 +263,6 @@ def test_analyze_all_ok():
 
     td = TimestampData("ts1", [0.6, 0.45])
 
-
     analyzer.analyze_and_output([td])
     assert analyzer._all_ok is True
 
@@ -285,7 +284,7 @@ def test_analyze_rules_triggered():
     analyzer.set_sensors(["sensor1", "sensor2"])
 
     td = TimestampData("ts1", [0.4, 0.45])
-    
+
     analyzer.analyze_and_output([td])
     assert analyzer._all_ok is False
 
@@ -453,11 +452,9 @@ def test_analyze_parallel():
 
     output = analyzer._alarms_output_file.getvalue()
 
-
     expected_output = ""
 
     # simple medium -> simple low -> correlated medium -> correlated low
-
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
         expected_output += "ts1;" + rule_num + ";MEDIUM;sensor2;0.45\n"
@@ -467,15 +464,13 @@ def test_analyze_parallel():
         rule_num = "rule" + str(i)
         expected_output += "ts1;" + rule_num + ";LOW;sensor2;0.45\n"
 
-
     for i in range(5, N_max):
         and_num = "and" + str(i - 5)
         expected_output += "ts1;" + and_num + ";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
-
     expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
-
-    for i in range(5, N_max):
+   
+   for i in range(5, N_max):
         and_num = "and" + str(i - 5)
-        expected_output += "ts1;" + and_num +";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+        expected_output += "ts1;" + and_num + ";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
 
     assert output == expected_output

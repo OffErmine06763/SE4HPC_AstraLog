@@ -113,8 +113,8 @@ def test_atralog_start_fails_without_sensors(capsys):
 # Number of processes
 # ------------------------------------
 
-def test_astralog_set_env_np():
 
+def test_astralog_set_env_np():
     env = os.environ.get("ASTRALOG_NUM_THREADS")
     os.environ["ASTRALOG_NUM_THREADS"] = "4"
     astralog = AstraLog()

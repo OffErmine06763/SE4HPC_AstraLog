@@ -9,8 +9,8 @@ import threading
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
-def priority_to_str(p: int) -> str:
 
+def priority_to_str(p: int) -> str:
     if p == 0:
         return "LOW"
     if p == 1:
@@ -39,6 +39,7 @@ class RuleNode:
 
 # define these to functions to pass to the processes to run the rules' evaluation in parallel
 
+
 def eval_independent_worker(
     rule_id: int, rule: IndependentRule, readings: list[float | None]
 ) -> tuple[int, bool, IndependentRule]:
@@ -46,9 +47,10 @@ def eval_independent_worker(
     result = rule.is_violated(readings)
     return rule_id, result, rule  # return mutated rule to preserve state
 
+
 def eval_corr_worker(
     leaf_idx: int, rule_id: int, rule: LogicalCorrelationRule, op1: bool, op2: bool
-) ->tuple[int, int, bool]:
+) -> tuple[int, int, bool]:
 
     result = rule.is_violated(op1, op2)
     return leaf_idx, rule_id, result
@@ -116,7 +118,7 @@ class BatchAnalyzer:
         self._all_ok = True
         self._outcomes = [False] * len(self._rules)
         ready_pred = {}
-    
+
         # reset local pred counts
         for priority in range(3):
             for node in self._corr_rules_graph[priority]:
