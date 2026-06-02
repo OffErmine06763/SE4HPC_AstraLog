@@ -1,9 +1,13 @@
 from src.rule import Rule, IndependentRule, LogicalCorrelationRule
 
 from io import TextIOWrapper
+from time import sleep
 from src.utils import TimestampData
 from typing import cast
 from queue import Queue
+import threading
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 
 
 def priority_to_str(p: int) -> str:
@@ -18,9 +22,6 @@ class RuleNode:
     # number of nodes this rule depends on (0, 1 or 2)
     num_pred: int
 
-    # number of nodes this rule depends on that have been evaluated at this timestamp
-    num_ready_pred: int
-
     # this LogicCorrelationRule id
     id: int
 
@@ -30,16 +31,31 @@ class RuleNode:
     def __init__(self, _id: int):
         self.id = _id
         self.num_pred = 0
-        self.num_ready_pred = 0
         self.next = []
+
+# define these to functions to pass to the processes to run the rules' evaluation in parallel
+
+
+def eval_independent_worker(
+    rule_id: int, rule: IndependentRule, readings: list[float | None]
+) -> tuple[int, bool, IndependentRule]:
+
+    result = rule.is_violated(readings)
+    return rule_id, result, rule  # return mutated rule to preserve state
+
+
+def eval_corr_worker(
+    leaf_idx: int, rule_id: int, rule: LogicalCorrelationRule, op1: bool, op2: bool
+) -> tuple[int, int, bool]:
+
+    result = rule.is_violated(op1, op2)
+    return leaf_idx, rule_id, result
 
 
 class BatchAnalyzer:
     _valid_output_file: TextIOWrapper
     _alarms_output_file: TextIOWrapper
-
     _sensor_id_to_name: list[str]
-
     # since rules have progressive ids, this can be indexed using rule.id
     _rules: list[Rule]
 
@@ -55,84 +71,161 @@ class BatchAnalyzer:
     # indexes of graph nodes that do not depend on other correlation rules, one list for each priority
     _leaf_nodes_ind: list[list[int]]
 
-    def __init__(self):
+    _writing_thread: threading.Thread
+
+    _stop_writing_event: threading.Event
+
+    # queue of valid data ready to be written by the writing loop
+    _valid_data_ready: Queue[int]
+
+    # counter for the timestamp number in the analysis
+    _counter: int
+
+    # queue of alamrs ready to be written by the writing loop
+    _alarm_data_ready: Queue[tuple[int, int]]
+
+    _executor: ProcessPoolExecutor
+
+    # for testing moved into the object
+    _all_ok: bool
+
+    # how long the writing loop sleeps if both queues are empty and _stop_writing_event is not set
+    ALARM_QUEUE_TIMEOUT = 0.0002
+
+    def __init__(self, np: int = 1):
+        # np -> number of processes to evaluate rules
         self._sensor_id_to_name = []
         self._rules = []
-        self._indep_rules_id = [[], [], []]
         self._outcomes = []
+        self._indep_rules_id = [[], [], []]
         self._corr_rules_graph = [[], [], []]
         self._leaf_nodes_ind = [[], [], []]
 
-    def reset_before_analysis(self):
-        self._outcomes = [False] * len(self._rules)
-        for priority in range(3):
-            for node in self._corr_rules_graph[priority]:
-                node.num_ready_pred = 0
+        self._stop_writing_event = threading.Event()
+        self._valid_data_ready = Queue()
+        self._alarm_data_ready = Queue()
+        self._counter = 0
+        self._all_ok = True
+        # start the pool of processes here, less overhead
+        ctx = multiprocessing.get_context('spawn')
+        self._executor = ProcessPoolExecutor(max_workers=np, mp_context=ctx)
 
-    def evaluate_independent_rules(self, td: TimestampData) -> bool:
-        all_ok = True
+    def _eval_independent_rules(self, td: TimestampData, priority: int) -> None:
+        # this submits the rule evaluation to the processes
+        # inside the array, there are the results of the evaluation (what the eval_independent_worker returns)
+        futures = [
+            self._executor.submit(
+                eval_independent_worker,
+                rule_id,
+                cast(IndependentRule, self._rules[rule_id]),
+                td.readings,
+            )
+            for rule_id in self._indep_rules_id[priority]
+        ]
+        for f in futures:
+            # for each evaluation, retrieve results
+            rule_id, result, updated_rule = f.result()
+            # since the processes get their own copy of everything, rules need to be update in case they change state
+            self._rules[rule_id] = updated_rule
+            self._outcomes[rule_id] = result
+            if result:
+                self._all_ok = False
+                # put the alarms to the alarm queue for the writing loop
+                self._alarm_data_ready.put((rule_id, self._counter))
 
-        for priority in range(2, -1,  -1):
-            for rule_id in self._indep_rules_id[priority]:
-                rule = cast(IndependentRule, self._rules[rule_id])
-                self._outcomes[rule.id] = rule.is_violated(td.readings)
-                if self._outcomes[rule.id]:
-                    all_ok = False
-                    self.write_alarms(rule, td)
+    def _eval_corr_rules(
+        self, priority: int, local_leafs: list[list[int]], local_leafs_next: list[list[int]], ready_pred: dict
+    ) -> None:
+        while local_leafs[priority]:
+            futures_logical = []
+            for leaf_idx in local_leafs[priority]:
+                node = self._corr_rules_graph[priority][leaf_idx]
+                log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
+                futures_logical.append(self._executor.submit(
+                    eval_corr_worker,
+                    leaf_idx,
+                    node.id,
+                    log_rule,
+                    self._outcomes[log_rule.op1],
+                    self._outcomes[log_rule.op2]
+                ))
 
-        return all_ok
+            # since the processes apparently cannot change state of the object, post-process everything on the main thread
+            for f_l in futures_logical:
+                leaf_idx, rule_id, result = f_l.result()
+                self._outcomes[rule_id] = result
+                if result:
+                    self._all_ok = False
+                    self._alarm_data_ready.put((rule_id, self._counter))
+                node = self._corr_rules_graph[priority][leaf_idx]
+                for succesor in node.next:
+                    next_node = self._corr_rules_graph[succesor[1]][succesor[0]]
+                    ready_pred[next_node.id] += 1
+                    if ready_pred[next_node.id] == next_node.num_pred:
+                        local_leafs_next[succesor[1]].append(succesor[0])
+
+            local_leafs[priority] = local_leafs_next[priority]
+            local_leafs_next[priority] = []
+            # keep the leafs of the lower priorities which were untouched
+            for jj in range(priority):
+                local_leafs[jj] += local_leafs_next[jj]
+                local_leafs_next[jj] = []
 
     def analyze(self, td: TimestampData) -> bool:
-        all_ok = True
-        self.reset_before_analysis()
+        self._all_ok = True
+        self._outcomes = [False] * len(self._rules)
+        ready_pred = {}
 
-        # first evaluate all rules that do not depend on anything else
-        all_ok = self.evaluate_independent_rules(td)
+        # reset local pred counts
+        for priority in range(3):
+            for node in self._corr_rules_graph[priority]:
+                ready_pred[node.id] = 0
 
-        # keep a local copy of the current leaves, and a second list for the next iteration
+        for priority in range(2, -1, -1):
+            self._eval_independent_rules(td, priority)
+
         local_leafs: list[list[int]] = [p.copy() for p in self._leaf_nodes_ind]
         local_leafs_next: list[list[int]] = [[], [], []]
-        # if the graph is well constructed, when there are no leaves we have evaluated all the rules
-        # evaluate first layers of each graph with the highest priority
-        for priority in range(2, -1,  -1):
-            while len(local_leafs[priority]) != 0:
-                for i in local_leafs[priority]:
-                    node = self._corr_rules_graph[priority][i]
-                    log_rule = cast(LogicalCorrelationRule, self._rules[node.id])
-                    self._outcomes[log_rule.id] = log_rule.is_violated(
-                        self._outcomes[log_rule.op1], self._outcomes[log_rule.op2]
-                    )
-                    if self._outcomes[log_rule.id]:
-                        all_ok = False
-                        self.write_alarms(log_rule, td)
+        for priority in range(2, -1, -1):
+            self._eval_corr_rules(priority, local_leafs, local_leafs_next, ready_pred)
 
-                    # check if the nodes that depend on this rule are ready to be evaluated
-                    # note that the increment and compare of the counter should be done atomically when parallelizing
-                    for next in node.next:
-                        next_node = self._corr_rules_graph[next[1]][next[0]]
-                        next_node.num_ready_pred += 1
-                        if next_node.num_ready_pred == next_node.num_pred:
-                            local_leafs_next[next[1]].append(next[0])
-
-                # swap the buffers
-                local_leafs[priority] = local_leafs_next[priority]
-                local_leafs_next[priority] = []
-                # keep the leafs of the lower priorities which were untouched
-                for jj in range(priority):
-                    local_leafs[jj] += local_leafs_next[jj]
-                    local_leafs_next[jj] = []
-        return all_ok
+        return self._all_ok
 
     def analyze_and_output(self, batch_data: list[TimestampData]):
+        # set counter, because the writing loop needs to know the index of the timestamp it's supposed to write
+        self._counter = 0
+        # unset the event from previous runs
+        self._stop_writing_event.clear()
+        # start the writing loop
+        self._writing_thread = threading.Thread(target=self.writing_loop, args=(batch_data,))
+        self._writing_thread.start()
         for td in batch_data:
             ok = self.analyze(td)
             if ok:
-                self.write_valid_data(td)
+                self._valid_data_ready.put(self._counter)
+            self._counter += 1
+        self._stop_writing_event.set()
+        self._writing_thread.join()
+
+    def writing_loop(self, data: list[TimestampData]):
+        # input data->TimeStamps
+        # checks if both queues are empty, only then checks the event
+        # with two queues, this solution seems better than the one with try...except blocks
+        while True:
+            if not self._valid_data_ready.empty():
+                index = self._valid_data_ready.get()
+                self.write_valid_data(data[index])
+            elif not self._alarm_data_ready.empty():
+                rule, index = self._alarm_data_ready.get()
+                self.write_alarms(self._rules[rule], data[index])
+            else:
+                if self._stop_writing_event.is_set():
+                    break
+                sleep(self.ALARM_QUEUE_TIMEOUT)
 
     def load_rules(self, rules: list[Rule]) -> bool:
         self._rules = rules
-
-        mapping: dict[int, tuple[int, int]] = {}  # mapping from rule id (and priorities) to _corr_rules_graph index
+        mapping: dict[int, tuple[int, int]] = {}
 
         for r in self._rules:
             if isinstance(r, IndependentRule):
@@ -142,30 +235,17 @@ class BatchAnalyzer:
                 self._corr_rules_graph[r.priority].append(node)
                 mapping[r.id] = (len(self._corr_rules_graph[r.priority]) - 1, r.priority)
 
-        # build the graph: i.e. set the number of predecessor nodes and the node indices of the successor nodes
-        for priority in range(0, 3):
+        for priority in range(3):
             for i in range(len(self._corr_rules_graph[priority])):
                 n = self._corr_rules_graph[priority][i]
                 rule = cast(LogicalCorrelationRule, self._rules[n.id])
-
-                if isinstance(self._rules[rule.op1], LogicalCorrelationRule):
-                    # each correlated rule can only depend on a rule of lower priority
-                    if self._rules[rule.op1].priority < rule.priority:
-                        raise RuntimeError(
-                            f"Correlation rule with id {str(n.id)} depends on a correlation rule with higher priority"
-                        )
-                    n.num_pred += 1
-                    ind = mapping[rule.op1]
-                    self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
-                if isinstance(self._rules[rule.op2], LogicalCorrelationRule):
-                    if self._rules[rule.op2].priority < rule.priority:
-                        raise RuntimeError(
-                            f"Correlation rule with id {str(n.id)} depends on a correlation rule with higher priority"
-                        )
-                    n.num_pred += 1
-                    ind = mapping[rule.op2]
-                    self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
-
+                for op in [rule.op1, rule.op2]:
+                    if isinstance(self._rules[op], LogicalCorrelationRule):
+                        if self._rules[op].priority < rule.priority:
+                            raise RuntimeError(f"Correlation rule {n.id} depends on a higher priority rule")
+                        n.num_pred += 1
+                        ind = mapping[op]
+                        self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
                 # initial leaf nodes, to be used at the start of a new timestamp analysis
                 if n.num_pred == 0:
                     self._leaf_nodes_ind[rule.priority].append(i)
@@ -174,76 +254,64 @@ class BatchAnalyzer:
         return True
 
     def write_valid_data(self, td: TimestampData):
-        if self._valid_output_file.closed:
-            print(
-                "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file"
-            )
+        # this function now performs a single atomic write
+        # this is better for the IO parallelization
+        # first assemble the whole string, then write
+        if self._valid_output_file is None or self._valid_output_file.closed:
+            print("WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file")
             return
-
-        self._valid_output_file.write(f"{td.ts};NOMINAL;")
-        for i in range(len(td.readings) - 1):
-            data = td.readings[i]
-            self._valid_output_file.write(f"{self._sensor_id_to_name[i]}:{data}|")
-        end = len(td.readings) - 1
-        self._valid_output_file.write(
-            f"{self._sensor_id_to_name[end]}:{td.readings[end]}"
+        readings = "|".join(
+            f"{self._sensor_id_to_name[i]}:{td.readings[i]}"
+            for i in range(len(td.readings))
         )
-        self._valid_output_file.write("\n")
+        self._valid_output_file.write(f"{td.ts};NOMINAL;{readings}\n")
 
     def write_alarms(self, rule: Rule, td: TimestampData):
-        if self._alarms_output_file.closed:
-            print(
-                "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file"
-            )
+        # same in this function as above
+        if self._alarms_output_file is None or self._alarms_output_file.closed:
+            print("WARNING BatchAnalyzer: did not provide an output file for alarm readings, use set_alarms_output_file")
             return
-
-        self._alarms_output_file.write(
-            f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
-        )
+        towrite = f"{td.ts};{rule.name};{priority_to_str(rule.priority)};"
         if isinstance(rule, IndependentRule):
-            self._alarms_output_file.write(
-                f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}"
-            )
+            towrite += f"{self._sensor_id_to_name[rule.sensor_id]};{td.readings[rule.sensor_id]}"
         elif isinstance(rule, LogicalCorrelationRule):
             to_print: Queue[Rule] = Queue()
             to_print.put(self._rules[rule.op1])
             to_print.put(self._rules[rule.op2])
-
-            sensor_names_to_print: list[str | None] = []
-            sensor_values_to_print: list[float | None] = []
-
+            sensor_names: list[str] = []
+            sensor_values: list[float | None] = []
             while not to_print.empty():
                 r = to_print.get()
                 if isinstance(r, IndependentRule):
-                    sensor_names_to_print.append(self._sensor_id_to_name[r.sensor_id])
-                    sensor_values_to_print.append(td.readings[r.sensor_id])
+                    sensor_names.append(self._sensor_id_to_name[r.sensor_id])
+                    sensor_values.append(td.readings[r.sensor_id])
                 elif isinstance(r, LogicalCorrelationRule):
                     to_print.put(self._rules[r.op1])
                     to_print.put(self._rules[r.op2])
-
-            for name in sensor_names_to_print[:-1]:
-                self._alarms_output_file.write(f"{name},")
-            self._alarms_output_file.write(f"{sensor_names_to_print[-1]};")
-
-            for value in sensor_values_to_print[:-1]:
-                self._alarms_output_file.write(f"{value},")
-            self._alarms_output_file.write(f"{sensor_values_to_print[-1]}")
-
-        self._alarms_output_file.write("\n")
+            if sensor_names:
+                towrite += ",".join(sensor_names) + ";"
+                towrite += ",".join(map(str, sensor_values))
+        towrite += "\n"
+        self._alarms_output_file.write(towrite)
 
     def set_valid_output_file(self, filename: str):
-        self._valid_output_file = open(filename, "w")
-        # TODO: handle errors
+        try:
+            self._valid_output_file = open(filename, "w")
+        except OSError as e:
+            raise RuntimeError(f"Failed to open valid data output file '{filename}': {e}") from e
 
     def set_alarms_output_file(self, filename: str):
-        self._alarms_output_file = open(filename, "w")
-        # TODO: handle errors
+        try:
+            self._alarms_output_file = open(filename, "w")
+        except OSError as e:
+            raise RuntimeError(f"Failed to open alarms output file '{filename}': {e}") from e
 
     def set_sensors(self, sensor_id_to_name: list[str]):
         self._sensor_id_to_name = sensor_id_to_name
 
     def deinit(self):
-        if not self._alarms_output_file.closed:
+        if self._alarms_output_file and not self._alarms_output_file.closed:
             self._alarms_output_file.close()
-        if not self._valid_output_file.closed:
+        if self._valid_output_file and not self._valid_output_file.closed:
             self._valid_output_file.close()
+        self._executor.shutdown(wait=True)

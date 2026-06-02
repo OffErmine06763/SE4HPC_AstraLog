@@ -30,7 +30,6 @@ def test_rule_node_set():
 
     assert node.id == 123
     assert node.num_pred == 0
-    assert node.num_ready_pred == 0
     assert node.next == []
 
 
@@ -88,7 +87,7 @@ def test_write_alarms_file_closed(capsys):
     captured_output = capsys.readouterr().out
 
     assert captured_output == \
-        "WARNING BatchAnalyzer: did not provide an output file for valid readings, use set_valid_output_file\n"
+        "WARNING BatchAnalyzer: did not provide an output file for alarm readings, use set_alarms_output_file\n"
 
 
 def test_write_alarms_file_simple_rule():
@@ -200,14 +199,12 @@ def test_batch_analyzer_load_rules1():
     rule0 = analyzer._corr_rules_graph[2][0]
     assert rule0.id == 2
     assert rule0.num_pred == 0  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == [(1, 2)]
 
     # Logical Correlation rule 1
     rule0 = analyzer._corr_rules_graph[2][1]
     assert rule0.id == 3
     assert rule0.num_pred == 1  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == []
 
 
@@ -236,14 +233,12 @@ def test_batch_analyzer_load_rules2():
     rule0 = analyzer._corr_rules_graph[2][0]
     assert rule0.id == 2
     assert rule0.num_pred == 0  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == [(1, 2)]
 
     # Logical Correlation rule 1
     rule0 = analyzer._corr_rules_graph[2][1]
     assert rule0.id == 3
     assert rule0.num_pred == 1  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == []
 
 
@@ -257,11 +252,14 @@ def test_analyze_all_ok():
 
     analyzer = BatchAnalyzer()
     analyzer._alarms_output_file = StringIO()
+    analyzer._valid_output_file = StringIO()
     analyzer.load_rules(rules)
+    analyzer.set_sensors(["sensor1", "sensor2"])
 
     td = TimestampData("ts1", [0.6, 0.45])
 
-    assert analyzer.analyze(td) is True
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is True
 
     output = analyzer._alarms_output_file.getvalue()
     assert output == ""
@@ -282,7 +280,8 @@ def test_analyze_rules_triggered():
 
     td = TimestampData("ts1", [0.4, 0.45])
 
-    assert analyzer.analyze(td) is False
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is False
 
     output = analyzer._alarms_output_file.getvalue()
     expected_output = "ts1;rule1;LOW;sensor1;0.4\n"
@@ -419,3 +418,55 @@ def test_bad_rules():
     analyzer._valid_output_file = StringIO()
     with pytest.raises(RuntimeError):
         analyzer.load_rules(rules)
+
+
+def test_analyze_parallel():
+    rules = [
+        SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
+        SimpleRule(0, "rule2", 1, 0.4, Operator.LESS),
+        LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
+        LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
+    ]
+    # create many correlated and independant rules which can be run in parallel
+    N_max = 1000
+    for i in range(5, N_max):
+        rule_num = "rule" + str(i)
+        and_num = "and" + str(i - 5)
+        rules.append(SimpleRule(0, rule_num, 1, 0.6, Operator.LESS))
+        rules.append(SimpleRule(1, rule_num, 1, 0.6, Operator.LESS))
+        rules.append(LogicalCorrelationRule(1, and_num, Logic.OR, 0, 2))
+        rules.append(LogicalCorrelationRule(0, and_num, Logic.OR, 0, 2))
+
+    analyzer = BatchAnalyzer(4)
+    analyzer._alarms_output_file = StringIO()
+    analyzer.load_rules(rules)
+    analyzer.set_sensors(["sensor1", "sensor2"])
+
+    td = TimestampData("ts1", [0.4, 0.45])
+    analyzer.analyze_and_output([td])
+    assert analyzer._all_ok is False
+
+    output = analyzer._alarms_output_file.getvalue()
+
+    expected_output = ""
+
+    # simple medium -> simple low -> correlated medium -> correlated low
+    for i in range(5, N_max):
+        rule_num = "rule" + str(i)
+        expected_output += "ts1;" + rule_num + ";MEDIUM;sensor2;0.45\n"
+
+    expected_output += "ts1;rule1;LOW;sensor1;0.4\n"
+    for i in range(5, N_max):
+        rule_num = "rule" + str(i)
+        expected_output += "ts1;" + rule_num + ";LOW;sensor2;0.45\n"
+
+    for i in range(5, N_max):
+        and_num = "and" + str(i - 5)
+        expected_output += "ts1;" + and_num + ";MEDIUM;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+    expected_output += "ts1;rule4;LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+
+    for i in range(5, N_max):
+        and_num = "and" + str(i - 5)
+        expected_output += "ts1;" + and_num + ";LOW;sensor1,sensor1,sensor2;0.4,0.4,0.45\n"
+
+    assert output == expected_output
