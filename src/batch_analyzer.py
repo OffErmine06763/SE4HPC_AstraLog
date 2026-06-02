@@ -22,9 +22,6 @@ class RuleNode:
     # number of nodes this rule depends on (0, 1 or 2)
     num_pred: int
 
-    # number of nodes this rule depends on that have been evaluated at this timestamp
-    num_ready_pred: int
-
     # this LogicCorrelationRule id
     id: int
 
@@ -34,7 +31,6 @@ class RuleNode:
     def __init__(self, _id: int):
         self.id = _id
         self.num_pred = 0
-        self.num_ready_pred = 0
         self.next = []
 
 # define these to functions to pass to the processes to run the rules' evaluation in parallel

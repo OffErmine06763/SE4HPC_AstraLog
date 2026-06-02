@@ -30,7 +30,6 @@ def test_rule_node_set():
 
     assert node.id == 123
     assert node.num_pred == 0
-    assert node.num_ready_pred == 0
     assert node.next == []
 
 
@@ -200,14 +199,12 @@ def test_batch_analyzer_load_rules1():
     rule0 = analyzer._corr_rules_graph[2][0]
     assert rule0.id == 2
     assert rule0.num_pred == 0  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == [(1, 2)]
 
     # Logical Correlation rule 1
     rule0 = analyzer._corr_rules_graph[2][1]
     assert rule0.id == 3
     assert rule0.num_pred == 1  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == []
 
 
@@ -236,14 +233,12 @@ def test_batch_analyzer_load_rules2():
     rule0 = analyzer._corr_rules_graph[2][0]
     assert rule0.id == 2
     assert rule0.num_pred == 0  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == [(1, 2)]
 
     # Logical Correlation rule 1
     rule0 = analyzer._corr_rules_graph[2][1]
     assert rule0.id == 3
     assert rule0.num_pred == 1  # depends only on independent rules
-    assert rule0.num_ready_pred == 0
     assert rule0.next == []
 
 
