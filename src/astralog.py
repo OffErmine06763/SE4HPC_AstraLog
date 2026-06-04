@@ -130,7 +130,7 @@ class AstraLog:
 
         return True
 
-    def _break_event(self, start_time: int) -> bool:
+    def _break_event(self, start_time: float) -> bool:
         if self._duration is not None and time.monotonic() - start_time >= self._duration:
                 print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
                 self._stop_analysis_event.set()

@@ -42,10 +42,6 @@ jobs:
     - name: Integration tests
       run: |
         pytest tests/integration_tests --cov=src --cov-report=term-missing
-
-    - name: System tests
-      run: |
-        pytest tests/system_tests --cov=src --cov-report=term-missing
   
   system-testing:
     runs-on: ubuntu-24.04

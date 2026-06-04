@@ -15,7 +15,7 @@ load_dotenv()
 
 # Example command (from root dir):
 # python3 -m src.main --reading-mode file --batch-mode count --limit 10
-if __name__ == "__main__":
+if __name__ == "__main__": # noqa
     parser = argparse.ArgumentParser(description="AstraLog Telemetry Collector")
 
     parser.add_argument("--reading-mode", choices=["file", "mqtt"], required=True,
