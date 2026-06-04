@@ -20,9 +20,9 @@ DATA_DIR = os.path.join(pathlib.Path(__file__).parent, "data")
 def set_environment_variables():
     os.environ["MQTT_BROKER_URL"] = "localhost"
     os.environ["MQTT_TOPIC"] = "test/topic"
-    os.environ["MQTT_USE_TLS"] = "false"
     os.environ["MQTT_USER"] = "user"  # will not be used
     os.environ["MQTT_PASSWORD"] = "pass"  # will not be used
+    os.environ["USE_TLS"] = "false"
 
 
 @pytest.fixture

@@ -132,9 +132,9 @@ class AstraLog:
 
     def _break_event(self, start_time: float) -> bool:
         if self._duration is not None and time.monotonic() - start_time >= self._duration:
-                print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
-                self._stop_analysis_event.set()
-                return True
+            print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
+            self._stop_analysis_event.set()
+            return True
 
         try:
             key = get_key()
@@ -203,7 +203,7 @@ class AstraLog:
             filename = self._batch_manager.add_to_batch(data, self._sensor_count)
             if filename != "":
                 self._batches_ready.put(filename)
-        
+
         self.shutdown()
 
     def set_data_source(self, data_reader: DataReader):
