@@ -143,48 +143,43 @@ class AstraLog:
 
         start_time = time.monotonic()
 
-        try:
-            while True:
-                if self._duration is not None and time.monotonic() - start_time >= self._duration:
-                    print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
+        while True:
+            if self._duration is not None and time.monotonic() - start_time >= self._duration:
+                print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
+                self._stop_analysis_event.set()
+                break
+
+            # handle execution metrics and keyboard
+            self._freq_meter.update()
+            try:
+                key = get_key()
+                if key and key.lower() == "q":
                     self._stop_analysis_event.set()
                     break
+            except io.UnsupportedOperation:
+                print("\ngetting key failed\n")
 
-                # handle execution metrics and keyboard
-                self._freq_meter.update()
-                try:
-                    key = get_key()
-                    if key and key.lower() == "q":
-                        self._stop_analysis_event.set()
-                        break
-                except io.UnsupportedOperation:
-                    print("\ngetting key failed\n")
+            # retrieve 1 entry from the data stream
+            valid, data_raw = data_reader.read_one()
+            if not valid:  # EOF or connection issues
+                break
 
-                # retrieve 1 entry from the data stream
-                valid, data_raw = data_reader.read_one()
-                if not valid:  # EOF or connection issues
-                    break
+            # validate the json or csv, returning a struct
+            # TODO: i dont like the fact that we have to run this if at every iteration
+            # tho i dont like the idea of moving this in the reader, i'd rather have the reader
+            # to be a generic source of data, you know division of responsibilities
+            data: SensorReading | None
+            if data_reader.type() == DataReaderType.STREAM:
+                data = validate_sensor_data_json(data_raw, self._sensor_ids)
+            else:
+                data = validate_sensor_data_csv(data_raw, self._sensor_ids)
 
-                # validate the json or csv, returning a struct
-                # TODO: i dont like the fact that we have to run this if at every iteration
-                # tho i dont like the idea of moving this in the reader, i'd rather have the reader
-                # to be a generic source of data, you know division of responsibilities
-                data: SensorReading | None
-                if data_reader.type() == DataReaderType.STREAM:
-                    data = validate_sensor_data_json(data_raw, self._sensor_ids)
-                else:
-                    data = validate_sensor_data_csv(data_raw, self._sensor_ids)
+            if data is None:  # data is invalid
+                continue
 
-                if data is None:  # data is invalid
-                    continue
-
-                filename = self._batch_manager.add_to_batch(data, self._sensor_count)
-                if filename != "":
-                    self._batches_ready.put(filename)
-        except KeyboardInterrupt:
-            print("AstraLog: KeyboardInterrupt received, stopping...")
-        except Exception as e:
-            print(f"AstraLog: unexpected error: {e}, stopping...")
+            filename = self._batch_manager.add_to_batch(data, self._sensor_count)
+            if filename != "":
+                self._batches_ready.put(filename)
 
         data_reader.close()
 
