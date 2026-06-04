@@ -130,6 +130,39 @@ class AstraLog:
 
         return True
 
+    def _break_event(self, start_time: int) -> bool:
+        if self._duration is not None and time.monotonic() - start_time >= self._duration:
+                print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
+                self._stop_analysis_event.set()
+                return True
+
+        try:
+            key = get_key()
+            if key and key.lower() == "q":
+                self._stop_analysis_event.set()
+                return True
+        except io.UnsupportedOperation:
+            print("\ngetting key failed\n")
+
+        return False
+
+    def shutdown(self):
+        data_reader = self._data_reader
+        assert data_reader is not None
+
+        data_reader.close()
+
+        # flush what is left in the batch manager
+        filename = self._batch_manager.get_flush_filename()
+        self._batch_manager.flush(filename, full=True)
+        self._batches_ready.put(filename)
+
+        self._stop_analysis_event.set()
+        self._analysis_thread.join()
+        self._batch_analyzer.deinit()
+
+        print("AstraLog: END")
+
     def start(self):
         ok = self.prepare_before_start()
         if not ok:
@@ -144,20 +177,10 @@ class AstraLog:
         start_time = time.monotonic()
 
         while True:
-            if self._duration is not None and time.monotonic() - start_time >= self._duration:
-                print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
-                self._stop_analysis_event.set()
+            if (self._break_event(start_time)):
                 break
 
-            # handle execution metrics and keyboard
             self._freq_meter.update()
-            try:
-                key = get_key()
-                if key and key.lower() == "q":
-                    self._stop_analysis_event.set()
-                    break
-            except io.UnsupportedOperation:
-                print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
             valid, data_raw = data_reader.read_one()
@@ -180,19 +203,8 @@ class AstraLog:
             filename = self._batch_manager.add_to_batch(data, self._sensor_count)
             if filename != "":
                 self._batches_ready.put(filename)
-
-        data_reader.close()
-
-        # flush what is left in the batch manager
-        filename = self._batch_manager.get_flush_filename()
-        self._batch_manager.flush(filename, full=True)
-        self._batches_ready.put(filename)
-
-        self._stop_analysis_event.set()
-        self._analysis_thread.join()
-        self._batch_analyzer.deinit()
-
-        print("AstraLog: END")
+        
+        self.shutdown()
 
     def set_data_source(self, data_reader: DataReader):
         self._data_reader = data_reader

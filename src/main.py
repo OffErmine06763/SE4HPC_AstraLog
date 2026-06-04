@@ -102,4 +102,11 @@ if __name__ == "__main__":
     alog.set_alarms_output_file(args.alarms_output_file)
     alog.set_duration(args.duration)
 
-    alog.start()
+    try:
+        alog.start()
+    except KeyboardInterrupt:
+        print("AstraLog: KeyboardInterrupt received, stopping")
+    except Exception as e:
+        print(f"AstraLog: unexpected error: {e}")
+    finally:
+        alog.shutdown()
