@@ -8,3 +8,4 @@ types-PyYAML==6.0.12
 hypothesis==6.90.0
 testcontainers==4.13.2
 docker==7.1.0
+MutPy==0.6.1

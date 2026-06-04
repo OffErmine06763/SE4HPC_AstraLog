@@ -47,6 +47,62 @@ jobs:
       run: |
         pytest tests/system_tests --cov=src --cov-report=term-missing
 
+  mutation:
+    needs: [ test ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python 3.11.8
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11.8"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Mutation testing
+        run: |
+          mut.py \
+            --target src.rule \
+            --unit-test tests.unit_tests.test_rule \
+            --runner pytest \
+            --report-html report \
+            --operator AOD AOR ASR BCR COD COI CRP DDL EHD EXS IHD LCR LOD LOR ROR SCD SIR \
+            2>&1 | tee mutation_output.txt
+
+          KILLED=$(grep -oP 'killed:\s*\K[0-9]+' mutation_output.txt || echo 0)
+          TOTAL=$(grep -oP 'all:\s*\K[0-9]+' mutation_output.txt || echo 0)
+
+          echo "Killed: $KILLED / Total: $TOTAL"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No mutants generated — check your --target and --operator flags."
+            exit 1
+          fi
+
+          SCORE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)
+          echo "Mutation score: ${SCORE}%"
+
+          if (( $(echo "$SCORE < 90" | bc -l) )); then
+            echo "FAILED: mutation score ${SCORE}% is below the 90% threshold."
+            exit 1
+          fi
+
+          echo "PASSED: mutation score ${SCORE}% meets the 90% threshold."
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: report/
+          if-no-files-found: warn
+          retention-days: 7
+
   lint:
     runs-on: ubuntu-24.04
 
