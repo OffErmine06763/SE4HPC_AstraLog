@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 env:
-  BROKER_URL: ${{ secrets.BROKER_URL }}
-  PORT: ${{ secrets.PORT }}
-  TOPIC: ${{ secrets.TOPIC }}
-  USER: ${{ secrets.USER }}
-  PASSWORD: ${{ secrets.PASSWORD }}
+  MQTT_BROKER_URL: ${{ secrets.BROKER_URL }}
+  MQTT_PORT: ${{ secrets.PORT }}
+  MQTT_TOPIC: ${{ secrets.TOPIC }}
+  MQTT_USER: ${{ secrets.USER }}
+  MQTT_PASSWORD: ${{ secrets.PASSWORD }}
 
 jobs:
   test:
@@ -186,6 +186,24 @@ jobs:
             -i ~/.ssh/cluster_key \
             ./dist/astralog.sif \
             "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}:~/astralog.sif"
+      - name: Upload job script to cluster
+        run: |
+          scp \
+            -o StrictHostKeyChecking=accept-new \
+            -i ~/.ssh/cluster_key \
+            ./job.sh \
+            "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}:~/job.sh"
+
+      - name: Run slurm job on cluster
+        run: |
+          ssh \
+            -o StrictHostKeyChecking=accept-new \
+            -i ~/.ssh/cluster_key \
+            "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}" \
+            "sbatch \
+            --export=export=SINGULARITYENV_MQTT_BROKER_URL='$MQTT_BROKER_URL',SINGULARITYENV_MQTT_PORT=$MQTT_PORT,SINGULARITYENV_MQTT_TOPIC='$MQTT_TOPIC',SINGULARITYENV_MQTT_USER='$MQTT_USER',SINGULARITYENV_MQTT_PASSWORD='$MQTT_PASSWORD' \
+            job.sh"
+        
 
       - name: Clean up SSH material
         if: always()
