@@ -30,20 +30,29 @@ class AstraLog:
     # this is synchronized
     _batches_ready: Queue[str]
 
+    # number of processes for the batch analyzer
+    _np: int
     _duration: int | None
 
     ERASE_BATCHES = True
     BATCH_QUEUE_LOOP_TIMEOUT = 2
 
     def __init__(self):
+        env = os.environ.get('ASTRALOG_NUM_THREADS')
+        if env is not None:
+            self._np = int(env)
+        else:
+            self._np = 1
         self._data_reader = None
-        self._batch_analyzer = BatchAnalyzer()
+        self._batch_analyzer = BatchAnalyzer(self._np)
         self._batch_manager = BatchManager()
         self._sensor_ids = dict()
         self._sensor_names = []
 
         self._reading_freq = 1.0
         self._sensor_count = 0
+
+        self._duration = None
 
         self._freq_meter = FrequencyMeter()
 
@@ -126,14 +135,18 @@ class AstraLog:
         if not ok:
             return
 
-        program_start_time = time.monotonic()
+        data_reader = self._data_reader
+        assert data_reader is not None  # narrows for mypy static analysis
+
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
 
+        start_time = time.monotonic()
+
         try:
             while True:
-                if self._duration and time.monotonic() - program_start_time > self._duration:
-                    print("AstraLog: duration expired, stopping...")
+                if self._duration is not None and time.monotonic() - start_time >= self._duration:
+                    print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
                     self._stop_analysis_event.set()
                     break
 
@@ -148,7 +161,7 @@ class AstraLog:
                     print("\ngetting key failed\n")
 
                 # retrieve 1 entry from the data stream
-                valid, data_raw = self._data_reader.read_one()
+                valid, data_raw = data_reader.read_one()
                 if not valid:  # EOF or connection issues
                     break
 
@@ -157,7 +170,7 @@ class AstraLog:
                 # tho i dont like the idea of moving this in the reader, i'd rather have the reader
                 # to be a generic source of data, you know division of responsibilities
                 data: SensorReading | None
-                if self._data_reader.type() == DataReaderType.STREAM:
+                if data_reader.type() == DataReaderType.STREAM:
                     data = validate_sensor_data_json(data_raw, self._sensor_ids)
                 else:
                     data = validate_sensor_data_csv(data_raw, self._sensor_ids)
@@ -165,19 +178,15 @@ class AstraLog:
                 if data is None:  # data is invalid
                     continue
 
-                # print(data_json)
-
                 filename = self._batch_manager.add_to_batch(data, self._sensor_count)
                 if filename != "":
                     self._batches_ready.put(filename)
         except KeyboardInterrupt:
-            print("AstraLog: received keyboard interrupt, stopping...")
-            self._stop_analysis_event.set()
+            print("AstraLog: KeyboardInterrupt received, stopping...")
         except Exception as e:
-            print(f"AstraLog: unexpected error: {e}")
-            self._stop_analysis_event.set()
+            print(f"AstraLog: unexpected error: {e}, stopping...")
 
-        self._data_reader.close()
+        data_reader.close()
 
         # flush what is left in the batch manager
         filename = self._batch_manager.get_flush_filename()

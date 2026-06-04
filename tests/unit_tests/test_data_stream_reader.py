@@ -1,7 +1,13 @@
+import pytest
 from queue import Queue
 from unittest.mock import Mock, patch
 from src.data_reader import DataReaderType
 from src.data_stream_reader import DataStreamReader, on_message
+
+
+@pytest.fixture
+def reader():
+    return DataStreamReader('url', 'port', 'topic', 'user', 'password')
 
 
 # -------------------
@@ -24,16 +30,12 @@ def test_on_message():
 # DataStreamReader
 # ----------------
 
-def test_data_stream_reader_init():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_init(reader):
     assert reader._client_id.startswith("Station_")
     assert len(reader._client_id) == len("Station_") + 6
 
 
-def test_data_stream_reader_open_success():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_open_success(reader):
     client = Mock()
     client.connect.return_value = 0
 
@@ -46,14 +48,12 @@ def test_data_stream_reader_open_success():
     # Verify calls to MQTT client
     client.username_pw_set.assert_called_once()
     client.tls_set_context.assert_called_once()
-    client.connect.assert_called_once_with(DataStreamReader.BROKER_URL, DataStreamReader.PORT)
-    client.subscribe.assert_called_once_with(DataStreamReader.TOPIC)
+    client.connect.assert_called_once_with(reader.broker_url, reader.port)
+    client.subscribe.assert_called_once_with(reader.topic)
     client.loop_start.assert_called_once()
 
 
-def test_data_stream_reader_open_failure():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_open_failure(reader):
     client = Mock()
     client.connect.return_value = 1  # failure to connect
 
@@ -68,9 +68,7 @@ def test_data_stream_reader_open_failure():
     client.loop_start.assert_not_called()
 
 
-def test_data_stream_reader_open_version2_not_supported():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_open_version2_not_supported(reader):
     client = Mock()
     client.connect.return_value = 0
 
@@ -88,14 +86,12 @@ def test_data_stream_reader_open_version2_not_supported():
     # Verify calls to MQTT client
     client.username_pw_set.assert_called_once()
     client.tls_set_context.assert_called_once()
-    client.connect.assert_called_once_with(DataStreamReader.BROKER_URL, DataStreamReader.PORT)
-    client.subscribe.assert_called_once_with(DataStreamReader.TOPIC)
+    client.connect.assert_called_once_with(reader.broker_url, reader.port)
+    client.subscribe.assert_called_once_with(reader.topic)
     client.loop_start.assert_called_once()
 
 
-def test_data_stream_reader_close():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_close(reader):
     client = Mock()
     client.connect.return_value = 0
 
@@ -111,9 +107,7 @@ def test_data_stream_reader_close():
     client.disconnect.assert_called_once()
 
 
-def test_data_stream_reader_str():
-    reader = DataStreamReader()
-
+def test_data_stream_reader_str(reader):
     reader._connected = False
     assert str(reader) == "DataStreamReader (connected = False)"
 
@@ -125,8 +119,7 @@ def test_data_stream_reader_type():
     assert DataStreamReader.type() == DataReaderType.STREAM
 
 
-def test_data_stream_reader_read_one_success():
-    reader = DataStreamReader()
+def test_data_stream_reader_read_one_success(reader):
     reader._message_queue = Queue()
     reader._message_queue.put("payload1")
 
@@ -136,8 +129,7 @@ def test_data_stream_reader_read_one_success():
     assert payload == "payload1"
 
 
-def test_data_stream_reader_read_one_empty_queue():
-    reader = DataStreamReader()
+def test_data_stream_reader_read_one_empty_queue(reader):
     reader._message_queue = Queue()
 
     ok, payload = reader.read_one()
