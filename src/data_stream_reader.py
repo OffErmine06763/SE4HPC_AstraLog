@@ -20,23 +20,23 @@ def on_message(self, userdata, msg):
 # The loop to keep listening is in AstraLog
 class DataStreamReader(DataReader):
     # --- MISSION CONFIGURATION ---
-    broker_url = os.getenv("BROKER_URL")
-    port = int(os.getenv("PORT", 8883))
-    topic = os.getenv("TOPIC")
-    user = os.getenv("USER")
-    password = os.getenv("PASSWORD")
+    broker_url = os.getenv("MQTT_BROKER_URL")
+    port = int(os.getenv("MQTT_PORT", 8883))
+    topic = os.getenv("MQTT_TOPIC")
+    user = os.getenv("MQTT_USER")
+    password = os.getenv("MQTT_PASSWORD")
 
     if broker_url is None:
-        raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
+        raise ValueError("DataStreamReader: missing MQTT_BROKER_URL environment variable")
     
     if topic is None:
-        raise ValueError("DataStreamReader: missing TOPIC environment variable")
+        raise ValueError("DataStreamReader: missing MQTT_TOPIC environment variable")
 
     if user is None:
-        raise ValueError("DataStreamReader: missing USER environment variable")
+        raise ValueError("DataStreamReader: missing MQTT_USER environment variable")
 
     if password is None:
-        raise ValueError("DataStreamReader: missing PASSWORD environment variable")
+        raise ValueError("DataStreamReader: missing MQTT_PASSWORD environment variable")
 
     BROKER_URL: str = broker_url
     PORT: int = port

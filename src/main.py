@@ -37,6 +37,9 @@ if __name__ == "__main__":
     parser.add_argument("--alarms-output-file", type=str, default="out/alarms.txt",
                         help="File for alarms (default=out/alarms.txt)")
 
+    parser.add_argument("--duration", type=int, default=None,
+                        help="Time (s) program runs before stopping (default: run indefinitely)")
+
     args = parser.parse_args()
 
     data_reader_type = DataReaderType.FILE if args.reading_mode == "file" else DataReaderType.STREAM
@@ -61,5 +64,6 @@ if __name__ == "__main__":
     alog.set_batch_output_dir(args.output_dir)
     alog.set_valid_output_file(args.valid_output_file)
     alog.set_alarms_output_file(args.alarms_output_file)
+    alog.set_duration(args.duration)
 
     alog.start()

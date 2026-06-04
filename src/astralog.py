@@ -30,6 +30,8 @@ class AstraLog:
     # this is synchronized
     _batches_ready: Queue[str]
 
+    _duration: int | None
+
     ERASE_BATCHES = True
     BATCH_QUEUE_LOOP_TIMEOUT = 2
 
@@ -124,43 +126,56 @@ class AstraLog:
         if not ok:
             return
 
+        program_start_time = time.monotonic()
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
 
-        while True:
-            # handle execution metrics and keyboard
-            self._freq_meter.update()
-            try:
-                key = get_key()
-                if key and key.lower() == "q":
+        try:
+            while True:
+                if self._duration and time.monotonic() - program_start_time > self._duration:
+                    print("AstraLog: duration expired, stopping...")
                     self._stop_analysis_event.set()
                     break
-            except io.UnsupportedOperation:
-                print("\ngetting key failed\n")
 
-            # retrieve 1 entry from the data stream
-            valid, data_raw = self._data_reader.read_one()
-            if not valid:  # EOF or connection issues
-                break
+                # handle execution metrics and keyboard
+                self._freq_meter.update()
+                try:
+                    key = get_key()
+                    if key and key.lower() == "q":
+                        self._stop_analysis_event.set()
+                        break
+                except io.UnsupportedOperation:
+                    print("\ngetting key failed\n")
 
-            # validate the json or csv, returning a struct
-            # TODO: i dont like the fact that we have to run this if at every iteration
-            # tho i dont like the idea of moving this in the reader, i'd rather have the reader
-            # to be a generic source of data, you know division of responsibilities
-            data: SensorReading | None
-            if self._data_reader.type() == DataReaderType.STREAM:
-                data = validate_sensor_data_json(data_raw, self._sensor_ids)
-            else:
-                data = validate_sensor_data_csv(data_raw, self._sensor_ids)
+                # retrieve 1 entry from the data stream
+                valid, data_raw = self._data_reader.read_one()
+                if not valid:  # EOF or connection issues
+                    break
 
-            if data is None:  # data is invalid
-                continue
+                # validate the json or csv, returning a struct
+                # TODO: i dont like the fact that we have to run this if at every iteration
+                # tho i dont like the idea of moving this in the reader, i'd rather have the reader
+                # to be a generic source of data, you know division of responsibilities
+                data: SensorReading | None
+                if self._data_reader.type() == DataReaderType.STREAM:
+                    data = validate_sensor_data_json(data_raw, self._sensor_ids)
+                else:
+                    data = validate_sensor_data_csv(data_raw, self._sensor_ids)
 
-            # print(data_json)
+                if data is None:  # data is invalid
+                    continue
 
-            filename = self._batch_manager.add_to_batch(data, self._sensor_count)
-            if filename != "":
-                self._batches_ready.put(filename)
+                # print(data_json)
+
+                filename = self._batch_manager.add_to_batch(data, self._sensor_count)
+                if filename != "":
+                    self._batches_ready.put(filename)
+        except KeyboardInterrupt:
+            print("AstraLog: received keyboard interrupt, stopping...")
+            self._stop_analysis_event.set()
+        except Exception as e:
+            print(f"AstraLog: unexpected error: {e}")
+            self._stop_analysis_event.set()
 
         self._data_reader.close()
 
@@ -240,6 +255,9 @@ class AstraLog:
 
     def set_valid_output_file(self, filename: str):
         self._batch_analyzer.set_valid_output_file(filename)
+
+    def set_duration(self, duration: int):
+        self._duration = duration
 
     def on_hz(self, hz):
         print(f"AstraLog: {hz:.2f} iterations/sec", end="")
