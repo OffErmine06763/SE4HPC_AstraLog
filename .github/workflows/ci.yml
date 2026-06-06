@@ -178,14 +178,14 @@ jobs:
       - name: Upload container to cluster
         run: |
           scp \
-            -o StrictHostKeyChecking=accept-new \
+            -o StrictHostKeyChecking=no \
             -i ~/.ssh/cluster_key \
             ./dist/astralog.sif \
             "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}:~/astralog.sif"
       - name: Upload job script to cluster
         run: |
           scp \
-            -o StrictHostKeyChecking=accept-new \
+            -o StrictHostKeyChecking=no \
             -i ~/.ssh/cluster_key \
             ./job.sh \
             "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}:~/job.sh"
@@ -193,7 +193,7 @@ jobs:
       - name: Run slurm job on cluster
         run: |
           ssh \
-            -o StrictHostKeyChecking=accept-new \
+            -o StrictHostKeyChecking=no \
             -i ~/.ssh/cluster_key \
             "${{ secrets.CLUSTER_SSH_USER }}@${{ secrets.CLUSTER_SSH_HOST }}" \
             "sbatch \
