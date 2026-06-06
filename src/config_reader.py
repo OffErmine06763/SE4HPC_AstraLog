@@ -32,14 +32,18 @@ def parse_rules_config(
             data = json.load(f)
             rules: list[Rule] = []
             mapping: dict[str, int] = {}  # from rule.name to rule.id
-
             for rule_json in data:
-                # TODO: add checks for existence of fields and correct datatype
                 priority = str_to_priority(rule_json["priority"])
                 name = rule_json["rule_id"]
-
                 rule: Rule
                 if rule_json["type"] == "simple":
+                    for field in ["sensor_id", "value", "operator"]:
+                        if field not in rule_json:
+                            print(f"parse_rules_config: missing field '{field}' in simple rule '{name}'")
+                            raise Exception
+                        if field == "value" and not isinstance(rule_json[field], (int, float)):
+                            print(f"parse_rules_config: field '{field}' in simple rule '{name}' must be a number")
+                            raise Exception
                     rule = SimpleRule(
                         priority,
                         name,
@@ -48,6 +52,13 @@ def parse_rules_config(
                         str_to_operator(rule_json["operator"]),
                     )
                 elif rule_json["type"] == "step_difference":
+                    for field in ["sensor_id", "value", "operator"]:
+                        if field not in rule_json:
+                            print(f"parse_rules_config: missing field '{field}' in step_difference rule '{name}'")
+                            raise Exception
+                        if field == "value" and not isinstance(rule_json[field], (int, float)):
+                            print(f"parse_rules_config: field '{field}' in step_difference rule '{name}' must be a number")
+                            raise Exception
                     rule = StepDifferenceRule(
                         priority,
                         name,
@@ -56,6 +67,13 @@ def parse_rules_config(
                         str_to_operator(rule_json["operator"]),
                     )
                 elif rule_json["type"] == "stateful":
+                    for field in ["sensor_id", "value", "consecutive_measurements", "operator"]:
+                        if field not in rule_json:
+                            print(f"parse_rules_config: missing field '{field}' in stateful rule '{name}'")
+                            raise Exception
+                        if field in ("value", "consecutive_measurements") and not isinstance(rule_json[field], (int, float)):
+                            print(f"parse_rules_config: field '{field}' in stateful rule '{name}' must be a number")
+                            raise Exception
                     rule = StatefulRule(
                         priority,
                         name,
@@ -65,7 +83,17 @@ def parse_rules_config(
                         str_to_operator(rule_json["operator"]),
                     )
                 else:
-                    # TODO: check that rule_json["conditions"] are present in the mapping, if not return False
+                    for field in ["conditions", "logic"]:
+                        if field not in rule_json:
+                            print(f"parse_rules_config: missing field '{field}' in correlation rule '{name}'")
+                            raise Exception
+                    if not isinstance(rule_json["conditions"], list) or len(rule_json["conditions"]) < 2:
+                        print(f"parse_rules_config: 'conditions' in correlation rule '{name}' must be a list of at least 2 elements")
+                        raise Exception
+                    for cond in rule_json["conditions"][:2]:
+                        if cond not in mapping:
+                            print(f"parse_rules_config: condition '{cond}' in correlation rule '{name}' references an unknown rule")
+                            raise Exception
                     rule = LogicalCorrelationRule(
                         priority,
                         name,
@@ -73,10 +101,8 @@ def parse_rules_config(
                         mapping[rule_json["conditions"][0]],
                         mapping[rule_json["conditions"][1]],
                     )
-
                 mapping[rule.name] = rule.id
                 rules.append(rule)
-
             return True, rules
 
     except FileNotFoundError:
