@@ -143,6 +143,7 @@ jobs:
           retention-days: 1
 
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: containerize
     runs-on: ubuntu-24.04
 
