@@ -153,6 +153,7 @@ jobs:
       name: production
 
     steps:
+      - uses: actions/checkout@v6
       - name: Download container artifact
         uses: actions/download-artifact@v8
         with:
