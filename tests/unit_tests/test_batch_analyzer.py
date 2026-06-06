@@ -406,7 +406,7 @@ def test_analyze_and_output_with_independat_correlations():
 
 
 def test_bad_rules_priority():
-    #rules cannot depend on rules of lower priority
+    # rules cannot depend on rules of lower priority
     rules = [
         SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
         SimpleRule(1, "rule2", 1, 0.4, Operator.LESS),
@@ -420,8 +420,9 @@ def test_bad_rules_priority():
     with pytest.raises(RuntimeError):
         analyzer.load_rules(rules)
 
+
 def test_bad_rules_cyclic():
-    #rules cannot form a cyclic graph
+    # rules cannot form a cyclic graph
     rules = [
         SimpleRule(0, "rule2", 1, 0.4, Operator.LESS),
         LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
