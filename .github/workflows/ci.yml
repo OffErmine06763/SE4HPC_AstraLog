@@ -175,7 +175,7 @@ jobs:
           mypy src --check-untyped-defs
       
   containerize:
-    needs: [ test, lint, quality, system-testing ]
+    needs: [ test, lint, quality, system-testing, mutation ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
