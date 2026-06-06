@@ -250,8 +250,35 @@ class BatchAnalyzer:
                 if n.num_pred == 0:
                     self._leaf_nodes_ind[rule.priority].append(i)
 
-        # TODO: add validation of rules, i.e. well formed dependency graph (acyclic)
+        self.validate_graph()
         return True
+
+    def validate_graph(self):
+        # Validate acyclicity of the dependency graph using DFS per priority level
+        # Cyclic graph can only arrise with rules of the same priority
+        # Otherwise an error comes up alredy during loading
+        for priority in range(3):
+            graph = self._corr_rules_graph[priority]
+            # 0 = unvisited, 1 = in current DFS stack, 2 = fully visited
+            state = [0] * len(graph)
+
+            def dfs(idx: int) -> None:
+                # Goes through all the layers of the graph with the same priority
+                state[idx] = 1
+                for next_idx, next_priority in graph[idx].next:
+                    if next_priority == priority:
+                        if state[next_idx] == 1:
+                            raise RuntimeError(
+                                f"Cycle detected in correlation rules graph at priority {priority}, "
+                                f"rule id {graph[next_idx].id}"
+                            )
+                        if state[next_idx] == 0:
+                            dfs(next_idx)
+                state[idx] = 2
+
+            for i in range(len(graph)):
+                if state[i] == 0:
+                    dfs(i)
 
     def write_valid_data(self, td: TimestampData):
         # this function now performs a single atomic write
