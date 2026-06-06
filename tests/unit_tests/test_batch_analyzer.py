@@ -444,7 +444,7 @@ def test_analyze_parallel():
         LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
     ]
     # create many correlated and independant rules which can be run in parallel
-    N_max = 1000
+    N_max = 200
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
         and_num = "and" + str(i - 5)

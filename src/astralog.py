@@ -91,15 +91,15 @@ class AstraLog:
                 self._batch_analyzer.analyze_and_output(batch_data)
 
             except FileNotFoundError:
-                print(
-                    f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found"
-                )
+                message = f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found"
+                print(message)
+                self._batch_analyzer.write_warning_to_alarms(message)
             except (
                 PermissionError
-            ):  # TODO: put "ERROR" or "WARNING" in the logs that need it
-                print(
-                    f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'"
-                )
+            ):
+                message = f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'"
+                print(message)
+                self._batch_analyzer.write_warning_to_alarms(message)
 
             dt = time.perf_counter() - start
             print(

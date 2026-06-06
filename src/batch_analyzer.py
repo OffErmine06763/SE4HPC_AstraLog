@@ -321,6 +321,9 @@ class BatchAnalyzer:
         towrite += "\n"
         self._alarms_output_file.write(towrite)
 
+    def write_warning_to_alarms(self, warning: str):
+        self._alarms_output_file.write(warning)
+
     def set_valid_output_file(self, filename: str):
         try:
             self._valid_output_file = open(filename, "w")
