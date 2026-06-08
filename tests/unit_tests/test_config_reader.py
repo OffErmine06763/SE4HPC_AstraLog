@@ -295,3 +295,133 @@ def test_parse_sensors_exception_thrown():
     assert freq == 0.0
     assert sensor_ids == {}
     assert sensor_names == []
+
+# --- missing field tests ---
+
+
+def test_parse_rules_simple_rule_missing_field(tmp_path):
+    for missing in ["sensor_id", "value", "operator"]:
+        data = [{
+            "rule_id": "R1", "type": "simple", "sensor_id": "TEMP-01",
+            "operator": ">", "value": 50.0, "priority": "MEDIUM"
+        }]
+        del data[0][missing]
+        file = tmp_path / "rules.json"
+        file.write_text(json.dumps(data))
+        ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+        assert not ok
+        assert rules == []
+
+
+def test_parse_rules_step_difference_rule_missing_field(tmp_path):
+    for missing in ["sensor_id", "value", "operator"]:
+        data = [{
+            "rule_id": "R2", "type": "step_difference", "sensor_id": "PRES-01",
+            "operator": "<", "value": -2.0, "priority": "LOW"
+        }]
+        del data[0][missing]
+        file = tmp_path / "rules.json"
+        file.write_text(json.dumps(data))
+        ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+        assert not ok
+        assert rules == []
+
+
+def test_parse_rules_stateful_rule_missing_field(tmp_path):
+    for missing in ["sensor_id", "value", "consecutive_measurements", "operator"]:
+        data = [{
+            "rule_id": "R3", "type": "stateful", "sensor_id": "VOLT-MAIN",
+            "operator": "<", "value": 20.0, "consecutive_measurements": 5, "priority": "HIGH"
+        }]
+        del data[0][missing]
+        file = tmp_path / "rules.json"
+        file.write_text(json.dumps(data))
+        ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+        assert not ok
+        assert rules == []
+
+
+def test_parse_rules_correlation_rule_missing_field(tmp_path):
+    for missing in ["conditions", "logic"]:
+        data = [
+            {"rule_id": "R1", "type": "simple", "sensor_id": "TEMP-01",
+             "operator": ">", "value": 50.0, "priority": "MEDIUM"},
+            {"rule_id": "R4", "type": "correlation", "logic": "AND",
+             "conditions": ["R1", "R1"], "priority": "HIGH"}
+        ]
+        del data[1][missing]
+        file = tmp_path / "rules.json"
+        file.write_text(json.dumps(data))
+        ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+        assert not ok
+        assert rules == []
+
+
+# test wrong rules
+
+def test_parse_rules_simple_rule_wrong_value_type(tmp_path):
+    data = [{"rule_id": "R1", "type": "simple", "sensor_id": "TEMP-01",
+            "operator": ">", "value": "BEZHODNOTY", "priority": "MEDIUM"}]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []
+
+
+def test_parse_rules_step_difference_rule_wrong_value_type(tmp_path):
+    data = [{"rule_id": "R2", "type": "step_difference", "sensor_id": "PRES-01",
+            "operator": "<", "value": "SHODNOTOU", "priority": "LOW"}]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []
+
+
+def test_parse_rules_stateful_rule_wrong_value_type(tmp_path):
+    data = [{"rule_id": "R3", "type": "stateful", "sensor_id": "VOLT-MAIN",
+            "operator": "<", "value": "low", "consecutive_measurements": 5, "priority": "HIGH"}]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []
+
+
+def test_parse_rules_stateful_rule_wrong_consecutive_type(tmp_path):
+    data = [{"rule_id": "R3", "type": "stateful", "sensor_id": "VOLT-MAIN",
+            "operator": "<", "value": 20.0, "consecutive_measurements": "VSECHNY", "priority": "HIGH"}]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []
+
+
+def test_parse_rules_correlation_rule_wrong_conditions_type(tmp_path):
+    data = [
+        {"rule_id": "R1", "type": "simple", "sensor_id": "TEMP-01",
+         "operator": ">", "value": 50.0, "priority": "MEDIUM"},
+        {"rule_id": "R4", "type": "correlation", "logic": "AND",
+         "conditions": "R1", "priority": "HIGH"}
+    ]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []
+
+
+def test_parse_rules_correlation_rule_unknown_rule(tmp_path):
+    data = [
+        {"rule_id": "R1", "type": "simple", "sensor_id": "TEMP-01",
+         "operator": ">", "value": 50.0, "priority": "MEDIUM"},
+        {"rule_id": "R4", "type": "correlation", "logic": "AND",
+         "conditions": ["R1", "R_UNKNOWN"], "priority": "HIGH"}
+    ]
+    file = tmp_path / "rules.json"
+    file.write_text(json.dumps(data))
+    ok, rules = parse_rules_config(str(file), SENSOR_IDS)
+    assert not ok
+    assert rules == []

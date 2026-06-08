@@ -3,7 +3,7 @@ from src.data_reader import DataReader, DataReaderType
 import paho.mqtt.client as mqtt
 import ssl
 import uuid
-from queue import Queue
+from queue import Queue, Empty
 
 
 def on_message(self, userdata, msg):
@@ -52,13 +52,13 @@ class DataStreamReader(DataReader):
                 return False, ''
 
             return True, payload
-        except Exception:
-            # TODO: handle timeout
-            return False, ''
+        except Empty:
+            print(f"DataStreamReader: timed out waiting for message after {self.timeout}s")
+        return False, ''
 
     def open(self) -> bool:
         # init client
-        try:  # if you use vscode don't mind the error here v, it's stupid
+        try:  # if you use vscode don't mind the error here
             self._client = mqtt.Client(
                 mqtt.CallbackAPIVersion.VERSION2,
                 client_id=self._client_id,
@@ -95,11 +95,13 @@ class DataStreamReader(DataReader):
         return True
 
     def close(self):
-        # TODO: verify correct disposal of connection
-
         self._connected = False
         self._client.loop_stop()  # stop listening for events
-        self._client.disconnect()
+        try:
+            self._client.disconnect()
+            print("DataStreamReader: disconnected cleanly")
+        except Exception as e:
+            print(f"DataStreamReader: error during disconnect: {e}")
 
     def __str__(self) -> str:
         return f"DataStreamReader (connected = {self._connected})"

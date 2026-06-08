@@ -94,8 +94,8 @@ if __name__ == "__main__": # noqa
         )
         alog.set_data_source(src)
 
-    alog.set_sensors(args.sensors_file)
-    alog.set_rules(args.rules_file)
+    flag = alog.set_sensors(args.sensors_file)
+    flag &= alog.set_rules(args.rules_file)
     alog.set_batch_mode(batch_mode, batch_param)
     alog.set_batch_output_dir(args.output_dir)
     alog.set_valid_output_file(args.valid_output_file)
@@ -103,7 +103,10 @@ if __name__ == "__main__": # noqa
     alog.set_duration(args.duration)
 
     try:
-        alog.start()
+        if flag:
+            alog.start()
+        else:
+            print("AstraLog: Configuration failed, exiting")
     except KeyboardInterrupt:
         print("AstraLog: KeyboardInterrupt received, stopping")
     except Exception as e:
