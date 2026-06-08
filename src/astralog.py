@@ -72,16 +72,12 @@ class AstraLog:
             try:
                 batch_filename = self._batches_ready.get(timeout=self.BATCH_QUEUE_LOOP_TIMEOUT)
             except Empty:
-                continue  # every 5 seconds check if this worker thread should quit
+                continue  # every BATCH_QUEUE_LOOP_TIMEOUT seconds check if this worker thread should quit
 
             print(f"AstraLog - Analysis: analyzing batch {batch_filename}...")
             start = time.perf_counter()
 
             try:
-                # MAYBE: the analysis could be done by reading one line at a time
-                # in that case the BatchManager will take an open file and return
-                # the next timestamp, rather than the full list, and BatchAnalyzer
-                # will take one timestamp at a time
                 batch_data: list[TimestampData] = []
                 with open(batch_filename, "r", encoding="utf-8") as f:
                     batch_data = BatchManager.parse_batch_file(f.read())
@@ -188,9 +184,6 @@ class AstraLog:
                 break
 
             # validate the json or csv, returning a struct
-            # TODO: i dont like the fact that we have to run this if at every iteration
-            # tho i dont like the idea of moving this in the reader, i'd rather have the reader
-            # to be a generic source of data, you know division of responsibilities
             data: SensorReading | None
             if data_reader.type() == DataReaderType.STREAM:
                 data = validate_sensor_data_json(data_raw, self._sensor_ids)

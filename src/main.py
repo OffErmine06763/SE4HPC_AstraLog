@@ -25,9 +25,6 @@ if __name__ == "__main__": # noqa
     parser.add_argument("--limit", type=int, required=True,
                         help="Messages count or Time interval in ms")
 
-    # TODO uncomment the seq-period flag
-    # parser.add_argument("--seq-period", type=int, default=100, help="Sequence number period (default: 100)")
-
     parser.add_argument("--readings-file", type=str, default="res/readings_sigma.csv",
                         help="In case of mode=count, the filename of the readings. (default=res/readings_sigma.csv)")
     parser.add_argument("--sensors-file", type=str, default="res/sensors_sigma.yaml",
