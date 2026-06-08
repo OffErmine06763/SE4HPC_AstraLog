@@ -417,23 +417,23 @@ def test_bad_rules_priority():
     analyzer = BatchAnalyzer()
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
-    with pytest.raises(RuntimeError):
-        analyzer.load_rules(rules)
+    output = analyzer.load_rules(rules)
+    assert output == False
 
 
 def test_bad_rules_cyclic():
     # rules cannot form a cyclic graph
     rules = [
-        SimpleRule(0, "rule2", 1, 0.4, Operator.LESS),
-        LogicalCorrelationRule(1, "rule3", Logic.AND, 0, 1),
-        LogicalCorrelationRule(1, "rule4", Logic.OR, 0, 2)
+        SimpleRule(0, "rule1", 1, 0.4, Operator.LESS),
+        LogicalCorrelationRule(1, "rule2", Logic.AND, 0, 2),
+        LogicalCorrelationRule(1, "rule3", Logic.OR, 0, 1)
     ]
 
     analyzer = BatchAnalyzer()
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
-    with pytest.raises(RuntimeError):
-        analyzer.load_rules(rules)
+    output = analyzer.load_rules(rules)
+    assert output == False
 
 
 def test_analyze_parallel():

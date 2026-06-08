@@ -242,16 +242,15 @@ class BatchAnalyzer:
                 for op in [rule.op1, rule.op2]:
                     if isinstance(self._rules[op], LogicalCorrelationRule):
                         if self._rules[op].priority < rule.priority:
-                            raise RuntimeError(f"Correlation rule {n.id} depends on a higher priority rule")
+                            print(f"Correlation rule {n.id} depends on a higher priority rule")
+                            return False 
                         n.num_pred += 1
                         ind = mapping[op]
                         self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
                 # initial leaf nodes, to be used at the start of a new timestamp analysis
                 if n.num_pred == 0:
                     self._leaf_nodes_ind[rule.priority].append(i)
-
-        self.validate_graph()
-        return True
+        return self.validate_graph()
 
     def validate_graph(self):
         # Validate acyclicity of the dependency graph using DFS per priority level
@@ -268,17 +267,22 @@ class BatchAnalyzer:
                 for next_idx, next_priority in graph[idx].next:
                     if next_priority == priority:
                         if state[next_idx] == 1:
-                            raise RuntimeError(
+                            print(
                                 f"Cycle detected in correlation rules graph at priority {priority}, "
                                 f"rule id {graph[next_idx].id}"
                             )
+                            return True
                         if state[next_idx] == 0:
-                            dfs(next_idx)
+                            if dfs(next_idx):
+                                return True
                 state[idx] = 2
+                return False
 
             for i in range(len(graph)):
                 if state[i] == 0:
-                    dfs(i)
+                    if dfs(i):
+                        return False
+        return True
 
     def write_valid_data(self, td: TimestampData):
         # this function now performs a single atomic write
