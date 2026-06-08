@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Optional
 
 
 class Operator(Enum):
@@ -40,7 +41,7 @@ class IndependentRule(Rule):
     sensor_id: int
 
     @abstractmethod
-    def is_violated(self, readings: list[float | None]) -> bool:
+    def is_violated(self, readings: list[Optional[float]]) -> bool:
         pass
 
     def __init__(
@@ -55,7 +56,7 @@ class SimpleRule(IndependentRule):
     last_violated = False
     threshold: float
 
-    def is_violated(self, readings: list[float | None]) -> bool:
+    def is_violated(self, readings: list[Optional[float]]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             # assume the value remained the same
@@ -87,7 +88,7 @@ class StepDifferenceRule(IndependentRule):
     last_reading: float
     ready: bool = False
 
-    def is_violated(self, readings: list[float | None]) -> bool:
+    def is_violated(self, readings: list[Optional[float]]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             if not self.ready:
@@ -126,7 +127,7 @@ class StatefulRule(IndependentRule):
     sensor_id: int
     operator: Operator
 
-    def is_violated(self, readings: list[float | None]) -> bool:
+    def is_violated(self, readings: list[Optional[float]]) -> bool:
         reading = readings[self.sensor_id]
         if reading is None:
             # assume the value remained the same
