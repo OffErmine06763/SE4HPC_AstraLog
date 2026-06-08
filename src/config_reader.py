@@ -40,10 +40,10 @@ def parse_rules_config(
                     for field in ["sensor_id", "value", "operator"]:
                         if field not in rule_json:
                             print(f"parse_rules_config: missing field '{field}' in simple rule '{name}'")
-                            raise Exception
+                            return False, []
                         if field == "value" and not isinstance(rule_json[field], (int, float)):
                             print(f"parse_rules_config: field '{field}' in simple rule '{name}' must be a number")
-                            raise Exception
+                            return False, []
                     rule = SimpleRule(
                         priority,
                         name,
@@ -55,10 +55,10 @@ def parse_rules_config(
                     for field in ["sensor_id", "value", "operator"]:
                         if field not in rule_json:
                             print(f"parse_rules_config: missing field '{field}' in step_difference rule '{name}'")
-                            raise Exception
+                            return False, []
                         if field == "value" and not isinstance(rule_json[field], (int, float)):
                             print(f"parse_rules_config: field '{field}' in step_difference rule '{name}' must be a number")
-                            raise Exception
+                            return False, []
                     rule = StepDifferenceRule(
                         priority,
                         name,
@@ -70,10 +70,10 @@ def parse_rules_config(
                     for field in ["sensor_id", "value", "consecutive_measurements", "operator"]:
                         if field not in rule_json:
                             print(f"parse_rules_config: missing field '{field}' in stateful rule '{name}'")
-                            raise Exception
+                            return False, []
                         if field in ("value", "consecutive_measurements") and not isinstance(rule_json[field], (int, float)):
                             print(f"parse_rules_config: field '{field}' in stateful rule '{name}' must be a number")
-                            raise Exception
+                            return False, []
                     rule = StatefulRule(
                         priority,
                         name,
@@ -86,14 +86,14 @@ def parse_rules_config(
                     for field in ["conditions", "logic"]:
                         if field not in rule_json:
                             print(f"parse_rules_config: missing field '{field}' in correlation rule '{name}'")
-                            raise Exception
+                            return False, []
                     if not isinstance(rule_json["conditions"], list) or len(rule_json["conditions"]) < 2:
                         print(f"parse_rules_config: 'conditions' in correlation rule '{name}' must be a list of at least 2 elements")
-                        raise Exception
+                        return False, []
                     for cond in rule_json["conditions"][:2]:
                         if cond not in mapping:
                             print(f"parse_rules_config: condition '{cond}' in correlation rule '{name}' references an unknown rule")
-                            raise Exception
+                            return False, []
                     rule = LogicalCorrelationRule(
                         priority,
                         name,
