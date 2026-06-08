@@ -101,7 +101,7 @@ if __name__ == "__main__": # noqa
     alog.set_valid_output_file(args.valid_output_file)
     alog.set_alarms_output_file(args.alarms_output_file)
     alog.set_duration(args.duration)
-    
+
     try:
         if flag:
             alog.start()

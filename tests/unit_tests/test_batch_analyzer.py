@@ -418,7 +418,7 @@ def test_bad_rules_priority():
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
     output = analyzer.load_rules(rules)
-    assert output == False
+    assert output is False
 
 
 def test_bad_rules_cyclic():
@@ -433,7 +433,7 @@ def test_bad_rules_cyclic():
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
     output = analyzer.load_rules(rules)
-    assert output == False
+    assert output is False
 
 
 def test_analyze_parallel():

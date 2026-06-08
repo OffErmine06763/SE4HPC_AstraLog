@@ -243,7 +243,7 @@ class BatchAnalyzer:
                     if isinstance(self._rules[op], LogicalCorrelationRule):
                         if self._rules[op].priority < rule.priority:
                             print(f"Correlation rule {n.id} depends on a higher priority rule")
-                            return False 
+                            return False
                         n.num_pred += 1
                         ind = mapping[op]
                         self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
@@ -261,7 +261,7 @@ class BatchAnalyzer:
             # 0 = unvisited, 1 = in current DFS stack, 2 = fully visited
             state = [0] * len(graph)
 
-            def dfs(idx: int) -> None:
+            def dfs(idx: int) -> bool:
                 # Goes through all the layers of the graph with the same priority
                 state[idx] = 1
                 for next_idx, next_priority in graph[idx].next:
