@@ -39,7 +39,7 @@ class AstraLog:
 
     def __init__(self):
         env = os.environ.get('ASTRALOG_NUM_THREADS')
-        if env is not None:
+        if env is not None and env != '':
             self._np = int(env)
         else:
             self._np = 1
