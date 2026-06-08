@@ -265,16 +265,16 @@ class BatchAnalyzer:
                 # Goes through all the layers of the graph with the same priority
                 state[idx] = 1
                 for next_idx, next_priority in graph[idx].next:
-                    if next_priority == priority:
-                        if state[next_idx] == 1:
-                            print(
-                                f"Cycle detected in correlation rules graph at priority {priority}, "
-                                f"rule id {graph[next_idx].id}"
-                            )
-                            return True
-                        if state[next_idx] == 0:
-                            if dfs(next_idx):
-                                return True
+                    if next_priority != priority or state[next_idx] == 2:
+                        continue
+                    if state[next_idx] == 1:
+                        print(
+                            f"Cycle detected in correlation rules graph at priority {priority}, "
+                            f"rule id {graph[next_idx].id}"
+                        )
+                        return True
+                    if dfs(next_idx):
+                        return True
                 state[idx] = 2
                 return False
 

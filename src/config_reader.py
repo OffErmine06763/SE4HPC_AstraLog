@@ -24,6 +24,88 @@ def str_to_logic(s: str) -> Logic:
     return Logic.OR
 
 
+def parse_simple_step_diff_rule(
+    rule_json, sensor_ids: dict[str, int]
+) -> Rule | None:
+    priority = str_to_priority(rule_json["priority"])
+    name = rule_json["rule_id"]
+
+    for field in ["sensor_id", "value", "operator"]:
+        if field not in rule_json:
+            print(f"parse_rules_config: missing field '{field}' in {rule_json['type']} rule '{name}'")
+            return None
+        if field == "value" and not isinstance(rule_json[field], (int, float)):
+            print(f"parse_rules_config: field '{field}' in {rule_json['type']} rule '{name}' must be a number")
+            return None
+    if rule_json["type"] == "simple":
+        return SimpleRule(
+            priority,
+            name,
+            sensor_ids[rule_json["sensor_id"]],
+            rule_json["value"],
+            str_to_operator(rule_json["operator"]),
+        )
+    else:
+        return StepDifferenceRule(
+                priority,
+                name,
+                sensor_ids[rule_json["sensor_id"]],
+                rule_json["value"],
+                str_to_operator(rule_json["operator"]),
+            )
+
+
+def parse_stateful_rule(
+    rule_json, sensor_ids: dict[str, int]
+) -> Rule | None:
+    priority = str_to_priority(rule_json["priority"])
+    name = rule_json["rule_id"]
+    for field in ["sensor_id", "value", "consecutive_measurements", "operator"]:
+        if field not in rule_json:
+            print(f"parse_rules_config: missing field '{field}' in stateful rule '{name}'")
+            return None
+        if field in ("value", "consecutive_measurements") and not isinstance(rule_json[field], (int, float)):
+            print(f"parse_rules_config: field '{field}' in stateful rule '{name}' must be a number")
+            return None
+    rule = StatefulRule(
+        priority,
+        name,
+        sensor_ids[rule_json["sensor_id"]],
+        rule_json["value"],
+        rule_json["consecutive_measurements"],
+        str_to_operator(rule_json["operator"]),
+    )
+    return rule
+
+
+def parse_logical_rule(
+    rule_json, sensor_ids: dict[str, int], mapping
+) -> Rule | None:
+    priority = str_to_priority(rule_json["priority"])
+    name = rule_json["rule_id"]
+    for field in ["conditions", "logic"]:
+        if field not in rule_json:
+            print(f"parse_rules_config: missing field '{field}' in correlation rule '{name}'")
+            return None
+    if not isinstance(rule_json["conditions"], list) or len(rule_json["conditions"]) < 2:
+        print(f"parse_rules_config: 'conditions' in correlation rule '{name}'"
+              "must be a list of at least 2 elements")
+        return None
+    for cond in rule_json["conditions"][:2]:
+        if cond not in mapping:
+            print(f"parse_rules_config: condition '{cond}' in correlation rule '{name}'"
+                  "references an unknown rule")
+            return None
+    rule = LogicalCorrelationRule(
+        priority,
+        name,
+        str_to_logic(rule_json["logic"]),
+        mapping[rule_json["conditions"][0]],
+        mapping[rule_json["conditions"][1]],
+    )
+    return rule
+
+
 def parse_rules_config(
     rules_filename: str, sensor_ids: dict[str, int]
 ) -> tuple[bool, list[Rule]]:
@@ -33,74 +115,14 @@ def parse_rules_config(
             rules: list[Rule] = []
             mapping: dict[str, int] = {}  # from rule.name to rule.id
             for rule_json in data:
-                priority = str_to_priority(rule_json["priority"])
-                name = rule_json["rule_id"]
-                rule: Rule
-                if rule_json["type"] == "simple":
-                    for field in ["sensor_id", "value", "operator"]:
-                        if field not in rule_json:
-                            print(f"parse_rules_config: missing field '{field}' in simple rule '{name}'")
-                            return False, []
-                        if field == "value" and not isinstance(rule_json[field], (int, float)):
-                            print(f"parse_rules_config: field '{field}' in simple rule '{name}' must be a number")
-                            return False, []
-                    rule = SimpleRule(
-                        priority,
-                        name,
-                        sensor_ids[rule_json["sensor_id"]],
-                        rule_json["value"],
-                        str_to_operator(rule_json["operator"]),
-                    )
-                elif rule_json["type"] == "step_difference":
-                    for field in ["sensor_id", "value", "operator"]:
-                        if field not in rule_json:
-                            print(f"parse_rules_config: missing field '{field}' in step_difference rule '{name}'")
-                            return False, []
-                        if field == "value" and not isinstance(rule_json[field], (int, float)):
-                            print(f"parse_rules_config: field '{field}' in step_difference rule '{name}' must be a number")
-                            return False, []
-                    rule = StepDifferenceRule(
-                        priority,
-                        name,
-                        sensor_ids[rule_json["sensor_id"]],
-                        rule_json["value"],
-                        str_to_operator(rule_json["operator"]),
-                    )
+                if rule_json["type"] == "simple" or rule_json["type"] == "step_difference":
+                    rule = parse_simple_step_diff_rule(rule_json, sensor_ids)
                 elif rule_json["type"] == "stateful":
-                    for field in ["sensor_id", "value", "consecutive_measurements", "operator"]:
-                        if field not in rule_json:
-                            print(f"parse_rules_config: missing field '{field}' in stateful rule '{name}'")
-                            return False, []
-                        if field in ("value", "consecutive_measurements") and not isinstance(rule_json[field], (int, float)):
-                            print(f"parse_rules_config: field '{field}' in stateful rule '{name}' must be a number")
-                            return False, []
-                    rule = StatefulRule(
-                        priority,
-                        name,
-                        sensor_ids[rule_json["sensor_id"]],
-                        rule_json["value"],
-                        rule_json["consecutive_measurements"],
-                        str_to_operator(rule_json["operator"]),
-                    )
+                    rule = parse_stateful_rule(rule_json, sensor_ids)
                 else:
-                    for field in ["conditions", "logic"]:
-                        if field not in rule_json:
-                            print(f"parse_rules_config: missing field '{field}' in correlation rule '{name}'")
-                            return False, []
-                    if not isinstance(rule_json["conditions"], list) or len(rule_json["conditions"]) < 2:
-                        print(f"parse_rules_config: 'conditions' in correlation rule '{name}' must be a list of at least 2 elements")
-                        return False, []
-                    for cond in rule_json["conditions"][:2]:
-                        if cond not in mapping:
-                            print(f"parse_rules_config: condition '{cond}' in correlation rule '{name}' references an unknown rule")
-                            return False, []
-                    rule = LogicalCorrelationRule(
-                        priority,
-                        name,
-                        str_to_logic(rule_json["logic"]),
-                        mapping[rule_json["conditions"][0]],
-                        mapping[rule_json["conditions"][1]],
-                    )
+                    rule = parse_logical_rule(rule_json, sensor_ids, mapping)
+                if rule is None:
+                    return False, []
                 mapping[rule.name] = rule.id
                 rules.append(rule)
             return True, rules
