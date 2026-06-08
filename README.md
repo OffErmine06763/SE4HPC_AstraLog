@@ -23,7 +23,7 @@ Here you can access the official documentation hub and web interface for the **A
 | **Student 1** | 12345678 | e.g., Software Architect & Backend Logic | XXh |
 | **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
 | **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
-| **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 80h |
+| **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
 
 *(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
 
