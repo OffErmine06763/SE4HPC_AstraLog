@@ -16,40 +16,104 @@ Here you can access the official documentation hub and web interface for the **A
 
 ## Team Members & Effort
 
-**TODO**
-
 | Name Surname | Person Code | Role / Main Focus | Effort (Hours) |
 | :--- | :--- | :--- | :--- |
-| **Student 1** | 12345678 | e.g., Software Architect & Backend Logic | XXh |
+| **Alessandro Boschi** | 10861605 | Software architect, serial implementation | 27h |
 | **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
 | **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
 | **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
-
-*(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
 
 ---
 
 ## Repository Structure
 
-**To be completed**
+```text
+.
+├── res/   # input files, including sensor reading, rules and sensor configuration
+│   ├── readings_alpha_large.csv
+│   ├── readings_alpha_medium.csv 
+│   ├── readings_alpha_small.csv
+│   ├── readings_alpha_smaller.csv   # well-formed subset of the "small" dataset
+|   ├── readings_sigma.csv           # handmade sensor readings
+|   ├── rules_alpha.json
+|   ├── rules_sigma.json             # handmade ruleset
+|   ├── sensor_alpha.yaml
+|   └── sensor_sigma.yaml            # handmade sensor configuration
+├── src/
+│   ├── astralog.py             # core of the software, orchestrates the various components
+│   ├── batch_analyzer.py       # reads batch files, analyzes them and writes to output files
+│   ├── batch_manager.py        # accumulates data in batches and saves them to file
+│   ├── config_reader.py        # parses sensors and rules configuration files
+│   ├── data_file_reader.py     # reads csv files containing sensor readings
+│   ├── data_filter.py          # validates incoming sensor readings
+│   ├── data_reader.py          # base class for sources of sensor reading
+│   ├── data_stream_reader.py   # reads mqtt stream of sensor readings
+│   ├── main.py                 # entry point, sets up AstraLog according to env / argv
+│   ├── rule.py                 # classes that define the rules logic and parameters
+│   ├── utils.py
+│   └── __init__.py
+└── tests/
+│   ├── TODO
+│   └── __init__.py
+├── astralog.def           # TODO
+├── job.sh                 # TODO 
+├── requirements.txt       # python dependencies (paho-mqtt, pytest, TODO)
+└── requirements-dev.txt   # TODO
+```
 
 ---
 
 ## Software Organization & Architecture 
 
-**To be completed** 
-
 ### Language and Libraries
-- **Language:** 🐍
+- **Language:** python
 - **Libraries:** `paho-mqtt` (for HiveMQ Broker connection), ... **to be completed/changed as needed**.
 
 ### Architecture & Relation to Phase 1
-**To be completed** 
+The architecture corresponds almost perfectly with the one proposed in the Phase 1 document. In the following lines we go into details of each component in the final architecture.
+
+**AstraLog**  
+One noteworthy addition is the AstraLog class: its role is to orchestrate the operation of the other components, managing aspects such as execution of parallel threads, the data reading loop and the data analysis loop.    
+The AstraLog component will query data using a DataReader, filter it via the functions exposed by DataFilter and add it to the current batch passing it to BatchManager. In parallel, the BatchAnalyzer will analyze full batches.
+
+The following components correspond in name and function as those proposed during Phase 1, and they are defined in the homonymous files.
+
+**DataReader**  
+As proposed, this component is divided into two sub-components: DataFileReader and DataStreamReader.  
+DataReader itself is an abstract class that exposes the interface to query a single sensor reading. The two implementations DataFileReader and DataStreamReader manage the file and stream i/o respectively.
+
+AstraLog will make use of the DataReader interface.
+
+**DataFilter**  
+This component corresponds to two functions:
+- `validate_sensor_data_csv` to validate the csv line read from file
+- `validate_sensor_data_json` to validate the json packet received via the stream.
+
+We opted for functions rather than a dedicated class given the stateless nature of the task performed by the component.
+
+AstraLog will call those functions after every query to DataReader
+
+**BatchManager**  
+The purpose of this component is to accumulate valid readings in batches and save them to file once a sufficient amount has been obtained or after a given amount of time has passed.
+
+AstraLog will push the valid readings to the BatchManager.
+
+**BatchAnalyzer**  
+This class purpose is to perform the analysis of the sensor data according to the ruleset. The operation of this component can be divided into two steps: evaluation of the rules and output generation.  
+In the proposed architecture, we separated those two responsibility in the sub-components RuleEvaluator and OutputHandler. This is reflected in the actual implementation where we defined the functions `analyze` and `writing_loop`, respectively.
+
+When the batch is full, AstraLog will forward the corresponding file to the BatchAnalyzer.
 
 ### Simplifications and variations (if any)
-**To be completed** 
+No simplification of the architecture has been done.
 
-### (For groups of three and four students) Distribution and parallelization approach
+The finalized architecture behave similarly to the proposed one, however, the introduction of the AstraLog component introduced some variations, due to it's role of controlling the operations of the other components. This resulted in several interactions between the components in the proposed architecture being replaced by interactions with AstraLog.  
+An example is the fact that it's not the DataReader that calls DataFilter and BatchManager, but instead it's AstraLog that queries all those components.
+
+Due to the parallelization requirements, also the behavior of BatchAnalyzer slightly diverges from the proposed one, since the RuleEvaluator will populate a queue with the output commands and the OutputHandler will perform the requested operations in parallel, without an intermediate intervention of the component that requested the analysis.  
+Additionally, in the proposed architecture it's BatchManager that requests the analysis of a batch, but since the role of orchestration of the components has been moved to AstraLog, it's now the latter responsibility to initiate the BatchAnalyzer operation.
+
+### Distribution and parallelization approach
 **To be completed** 
 
 ### Usage of AI (if any)
@@ -117,71 +181,33 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for m
 
 ---
 
-## Instructors' notes on the current content of this template
+## Local Setup & Usage
 
-### Current repository structure
-```text
-.
-├── csv_input/                 # Input datasets for groups of two and three students
-│   ├── export_sat_alpha_large.csv  
-│   ├── export_sat_alpha_medium.csv
-│   └── export_sat_alpha_small.csv
-├── requirements.txt           # Python dependencies (paho-mqtt, pytest)
-├── src/
-│   ├── astralog_collector.py  # Core ingestion & ESA validation logic
-│   └── __init__.py
-└── tests/
-    ├── test_collector.py      # Automated test suite
-    └── __init__.py
-```
+TODO
 
-### ESA Compliance & Implementation Details
-
-The following website acts as documentation hub for the project and contains AstraLog Control, a wed dashboard that allows you to visualize the messages incoming from the spacecrafts' digital twins through the MQTT broker: https://github.com/SimoneReale/astralog-control. Please analyze its content carefully. 
-
-Groups of two and three students will find in 'csv_input' three csv files containing sets of events generated by spacecrafts' sensors. The three sets have all the same structure and contain different amounts of data to allow you to test your system in different situations.
-
-Groups of four students can take inspiration or can reuse the implementation in `astralog_collector.py`. It acquires data from the MQTT broker. 
-`astralog_collector.py` filters incoming data to handle real-world space communication noise:
-1. **Malformed JSON:** Drops packets with invalid syntax.
-2. **Schema Errors:** Ensures all mandatory fields (`timestamp`, `sensor_id`, `value`, `priority`) are present.
-3. **Type Errors:** Verifies that sensor `value` is numerical.
-
-The system supports two **Batch Accumulation Strategies**:
-- **Count-based:** Flushes to a timestamped `.txt` file every *N* valid messages.
-- **Time-based:** Flushes to a timestamped `.txt` file every *N* milliseconds.
-
-
-
-### Local Setup & Usage
-
-#### 1. Installation
+### Installation
 Install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 2. Running the Collector
+### Execution
 To avoid module resolution errors, always run the module from the root directory using the `-m` flag.
 
 **Example 1: Batch every 100 valid messages**
 ```bash
-python3 -m src.astralog_collector --mode count --limit 100
+python3 -m src.astralog_collector --mode count --limit 100 TODO
 ```
 
 **Example 2: Batch every 5000 milliseconds (5 seconds)**
 ```bash
-python3 -m src.astralog_collector --mode time --limit 5000
+python3 -m src.astralog_collector --mode time --limit 5000 TODO
 ```
 
-### Testing & Rationale
-
-We implemented our test suite using `pytest`. The tests are located in `tests/test_collector.py`.
-- **Rationale behind test cases:** The tests were designed to cover the core business logic without requiring an active MQTT connection.
-
+### Testing
 To run the tests locally:
 ```bash
-python3 -m pytest tests/
+python3 -m pytest tests/ TODO
 ```
 
 ---
