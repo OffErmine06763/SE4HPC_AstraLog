@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def get_required_env(name: str) -> str:
     value = os.getenv(name)
 
@@ -21,6 +22,7 @@ def get_required_env(name: str) -> str:
         )
 
     return value
+
 
 def get_bool_env(name: str, default: bool = True) -> bool:
     value = os.getenv(name)
