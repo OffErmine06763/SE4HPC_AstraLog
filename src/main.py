@@ -12,6 +12,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def get_required_env(name: str) -> str:
+    value = os.getenv(name)
+
+    if value is None:
+        raise ValueError(
+            f"DataStreamReader: missing {name} environment variable"
+        )
+
+    return value
+
+def get_bool_env(name: str, default: bool = True) -> bool:
+    value = os.getenv(name)
+
+    if value is None:
+        return default
+
+    return value.lower() == "true"
 
 # Example command (from root dir):
 # python3 -m src.main --reading-mode file --batch-mode count --limit 10
@@ -61,32 +78,12 @@ if __name__ == "__main__": # noqa
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
         # --- MISSION CONFIGURATION ---
-        broker_url = os.getenv("MQTT_BROKER_URL")
+        broker_url = get_required_env("MQTT_BROKER_URL")
         port = int(os.getenv("MQTT_PORT", 8883))
-        topic = os.getenv("MQTT_TOPIC")
-        user = os.getenv("MQTT_USER")
-        password = os.getenv("MQTT_PASSWORD")
-        use_tls_env = os.getenv("USE_TLS")
-
-        if use_tls_env is None:
-            use_tls = True
-        else:
-            use_tls = bool(use_tls_env == 'True' or use_tls_env == 'true')
-
-        if broker_url is None:
-            raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
-
-        if port is None:
-            raise ValueError("DataStreamReader: missing PORT environment variable")
-
-        if topic is None:
-            raise ValueError("DataStreamReader: missing TOPIC environment variable")
-
-        if user is None:
-            raise ValueError("DataStreamReader: missing USER environment variable")
-
-        if password is None:
-            raise ValueError("DataStreamReader: missing PASSWORD environment variable")
+        topic = get_required_env("MQTT_TOPIC")
+        user = get_required_env("MQTT_USER")
+        password = get_required_env("MQTT_PASSWORD")
+        use_tls = get_bool_env("USE_TLS", True)
 
         src = DataStreamReader(
             broker_url=broker_url, port=port, topic=topic, user=user, password=password,
