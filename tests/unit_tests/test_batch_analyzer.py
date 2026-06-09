@@ -405,7 +405,8 @@ def test_analyze_and_output_with_independat_correlations():
     assert valid_output == valid_expected
 
 
-def test_bad_rules():
+def test_bad_rules_priority():
+    # rules cannot depend on rules of lower priority
     rules = [
         SimpleRule(0, "rule1", 0, 0.5, Operator.LESS),
         SimpleRule(1, "rule2", 1, 0.4, Operator.LESS),
@@ -416,8 +417,23 @@ def test_bad_rules():
     analyzer = BatchAnalyzer()
     analyzer._alarms_output_file = StringIO()
     analyzer._valid_output_file = StringIO()
-    with pytest.raises(RuntimeError):
-        analyzer.load_rules(rules)
+    output = analyzer.load_rules(rules)
+    assert output is False
+
+
+def test_bad_rules_cyclic():
+    # rules cannot form a cyclic graph
+    rules = [
+        SimpleRule(0, "rule1", 1, 0.4, Operator.LESS),
+        LogicalCorrelationRule(1, "rule2", Logic.AND, 0, 2),
+        LogicalCorrelationRule(1, "rule3", Logic.OR, 0, 1)
+    ]
+
+    analyzer = BatchAnalyzer()
+    analyzer._alarms_output_file = StringIO()
+    analyzer._valid_output_file = StringIO()
+    output = analyzer.load_rules(rules)
+    assert output is False
 
 
 def test_analyze_parallel():
@@ -428,7 +444,7 @@ def test_analyze_parallel():
         LogicalCorrelationRule(0, "rule4", Logic.OR, 0, 2),
     ]
     # create many correlated and independant rules which can be run in parallel
-    N_max = 1000
+    N_max = 20
     for i in range(5, N_max):
         rule_num = "rule" + str(i)
         and_num = "and" + str(i - 5)

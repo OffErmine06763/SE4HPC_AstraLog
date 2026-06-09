@@ -242,15 +242,46 @@ class BatchAnalyzer:
                 for op in [rule.op1, rule.op2]:
                     if isinstance(self._rules[op], LogicalCorrelationRule):
                         if self._rules[op].priority < rule.priority:
-                            raise RuntimeError(f"Correlation rule {n.id} depends on a higher priority rule")
+                            print(f"Correlation rule {n.id} depends on a higher priority rule")
+                            return False
                         n.num_pred += 1
                         ind = mapping[op]
                         self._corr_rules_graph[ind[1]][ind[0]].next.append((i, rule.priority))
                 # initial leaf nodes, to be used at the start of a new timestamp analysis
                 if n.num_pred == 0:
                     self._leaf_nodes_ind[rule.priority].append(i)
+        return self.validate_graph()
 
-        # TODO: add validation of rules, i.e. well formed dependency graph (acyclic)
+    def validate_graph(self):
+        # Validate acyclicity of the dependency graph using DFS per priority level
+        # Cyclic graph can only arrise with rules of the same priority
+        # Otherwise an error comes up alredy during loading
+        for priority in range(3):
+            graph = self._corr_rules_graph[priority]
+            # 0 = unvisited, 1 = in current DFS stack, 2 = fully visited
+            state = [0] * len(graph)
+
+            def dfs(idx: int) -> bool:
+                # Goes through all the layers of the graph with the same priority
+                state[idx] = 1
+                for next_idx, next_priority in graph[idx].next:
+                    if next_priority != priority or state[next_idx] == 2:
+                        continue
+                    if state[next_idx] == 1:
+                        print(
+                            f"Cycle detected in correlation rules graph at priority {priority}, "
+                            f"rule id {graph[next_idx].id}"
+                        )
+                        return True
+                    if dfs(next_idx):
+                        return True
+                state[idx] = 2
+                return False
+
+            for i in range(len(graph)):
+                if state[i] == 0:
+                    if dfs(i):
+                        return False
         return True
 
     def write_valid_data(self, td: TimestampData):
@@ -293,6 +324,9 @@ class BatchAnalyzer:
                 towrite += ",".join(map(str, sensor_values))
         towrite += "\n"
         self._alarms_output_file.write(towrite)
+
+    def write_warning_to_alarms(self, warning: str):
+        self._alarms_output_file.write(warning)
 
     def set_valid_output_file(self, filename: str):
         try:

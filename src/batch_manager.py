@@ -57,13 +57,8 @@ class BatchManager:
         self._sequence_number = (self._sequence_number + 1) % self._sequence_period
         return os.path.join(self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt")
 
-    # TODO: this requires extensive testing, like we have to trigger the appends after the
-    # initial warm-up, and also make sure the reuse of existing cache cells works correctly
     def add_to_batch(self, data: SensorReading, sensor_count: int) -> str:
         # TODO: MAYBE have a tmp file where you push complete timestamps, rename it when full
-
-        # TODO: perform IO in a separate thread, even if we risk crossing GIL; need a way to signal AstraLog about
-        # readiness of a new file.
 
         self._count += 1
 
@@ -107,28 +102,27 @@ class BatchManager:
     # if `full = True` include in the output file the last timestamp
     def flush(self, filename: str, full=False):
         print(f"BatchManager: saving batch to {filename}")
-
-        with open(filename, "w") as f:
-            for i in range(self._ts_count - (1 if not full else 0)):
-                f.write(self._cache[i].ts)
-                f.write("\n")
-                for r in self._cache[i].readings[:-1]:
-                    if r is not None:
-                        f.write(str(r))
-                    f.write(",")
-                if self._cache[i].readings[-1] is not None:
-                    f.write(str(self._cache[i].readings[-1]))
-                f.write("\n")
-
-        # TODO: handle IO errors
-
+        try:
+            with open(filename, "w") as f:
+                for i in range(self._ts_count - (1 if not full else 0)):
+                    f.write(self._cache[i].ts)
+                    f.write("\n")
+                    for r in self._cache[i].readings[:-1]:
+                        if r is not None:
+                            f.write(str(r))
+                        f.write(",")
+                    if self._cache[i].readings[-1] is not None:
+                        f.write(str(self._cache[i].readings[-1]))
+                    f.write("\n")
+        except OSError as e:
+            print(f"BatchManager: failed to save batch to {filename}: {e}")
+            raise
         # move the last element at front
         if self._ts_count > 0:
             self._cache[0].ts = self._cache[self._ts_count - 1].ts
             self._cache[0].readings = self._cache[self._ts_count - 1].readings.copy()
             self._count = sum(x is not None for x in self._cache[0].readings)
             self._ts_count = 1
-
         self.reset_flush_timer()
 
     @staticmethod

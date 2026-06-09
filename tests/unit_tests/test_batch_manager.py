@@ -1,4 +1,5 @@
 import os
+import pytest
 from unittest.mock import patch
 from src.batch_manager import BatchManager
 from src.utils import SensorReading
@@ -188,3 +189,17 @@ def test_add_to_batch_flushes_mode_time(tmp_path):
 
     output = file.read_text()
     assert output == "ts1\n0.4,\n"
+
+
+def test_flush_io_error(tmp_path):
+    # test if the IO error is raised during flush
+    manager = BatchManager()
+    manager.set_mode(BatchManager.MODE_TIME, 100)
+    manager.output_dir = tmp_path / "out_dir"
+    os.mkdir(tmp_path / "out_dir")
+    manager.init()
+    manager.add_to_batch(SensorReading("ts1", 0, 0.4), 2)
+
+    with patch("builtins.open", side_effect=OSError("disk full")):
+        with pytest.raises(OSError, match="disk full"):
+            manager.flush(str(tmp_path / "out_dir" / "raw_data_0_0000.txt"), full=True)

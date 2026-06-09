@@ -13,9 +13,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def get_required_env(name: str) -> str:
+    value = os.getenv(name)
+
+    if value is None:
+        raise ValueError(
+            f"DataStreamReader: missing {name} environment variable"
+        )
+
+    return value
+
+
+def get_bool_env(name: str, default: bool = True) -> bool:
+    value = os.getenv(name)
+
+    if value is None:
+        return default
+
+    return value.lower() == "true"
+
 # Example command (from root dir):
 # python3 -m src.main --reading-mode file --batch-mode count --limit 10
-if __name__ == "__main__":
+if __name__ == "__main__": # noqa
     parser = argparse.ArgumentParser(description="AstraLog Telemetry Collector")
 
     parser.add_argument("--reading-mode", choices=["file", "mqtt"], required=True,
@@ -42,6 +61,9 @@ if __name__ == "__main__":
     parser.add_argument("--alarms-output-file", type=str, default="out/alarms.txt",
                         help="File for alarms (default=out/alarms.txt)")
 
+    parser.add_argument("--duration", type=int, default=None,
+                        help="Time (s) program runs before stopping (default: run indefinitely)")
+
     args = parser.parse_args()
 
     data_reader_type = DataReaderType.FILE if args.reading_mode == "file" else DataReaderType.STREAM
@@ -58,32 +80,12 @@ if __name__ == "__main__":
         alog.set_data_source(src)
     elif data_reader_type == DataReaderType.STREAM:
         # --- MISSION CONFIGURATION ---
-        broker_url = os.getenv("BROKER_URL")
-        port = int(os.getenv("PORT", 8883))
-        topic = os.getenv("TOPIC")
-        user = os.getenv("USER")
-        password = os.getenv("PASSWORD")
-        use_tls_env = os.getenv("USE_TLS")
-
-        if use_tls_env is None:
-            use_tls = True
-        else:
-            use_tls = bool(use_tls_env == 'True' or use_tls_env == 'true')
-
-        if broker_url is None:
-            raise ValueError("DataStreamReader: missing BROKER_URL environment variable")
-
-        if port is None:
-            raise ValueError("DataStreamReader: missing PORT environment variable")
-
-        if topic is None:
-            raise ValueError("DataStreamReader: missing TOPIC environment variable")
-
-        if user is None:
-            raise ValueError("DataStreamReader: missing USER environment variable")
-
-        if password is None:
-            raise ValueError("DataStreamReader: missing PASSWORD environment variable")
+        broker_url = get_required_env("MQTT_BROKER_URL")
+        port = int(os.getenv("MQTT_PORT", 8883))
+        topic = get_required_env("MQTT_TOPIC")
+        user = get_required_env("MQTT_USER")
+        password = get_required_env("MQTT_PASSWORD")
+        use_tls = get_bool_env("USE_TLS", True)
 
         src = DataStreamReader(
             broker_url=broker_url, port=port, topic=topic, user=user, password=password,
@@ -91,11 +93,22 @@ if __name__ == "__main__":
         )
         alog.set_data_source(src)
 
-    alog.set_sensors(args.sensors_file)
-    alog.set_rules(args.rules_file)
+    flag = alog.set_sensors(args.sensors_file)
+    flag &= alog.set_rules(args.rules_file)
     alog.set_batch_mode(batch_mode, batch_param)
     alog.set_batch_output_dir(args.output_dir)
     alog.set_valid_output_file(args.valid_output_file)
     alog.set_alarms_output_file(args.alarms_output_file)
+    alog.set_duration(args.duration)
 
-    alog.start()
+    try:
+        if flag:
+            alog.start()
+        else:
+            print("AstraLog: Configuration failed, exiting")
+    except KeyboardInterrupt:
+        print("AstraLog: KeyboardInterrupt received, stopping")
+    except Exception as e:
+        print(f"AstraLog: unexpected error: {e}")
+    finally:
+        alog.shutdown()

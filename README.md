@@ -23,7 +23,7 @@ Here you can access the official documentation hub and web interface for the **A
 | **Student 1** | 12345678 | e.g., Software Architect & Backend Logic | XXh |
 | **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
 | **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
-| **Stanisław Ostyk-Narbutt** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
+| **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
 
 *(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
 
@@ -62,7 +62,52 @@ Here you can access the official documentation hub and web interface for the **A
 
 ---
 ## Pipeline & DevOps Workflow
-**To be completed** 
+An elaborate CI/CD pipeline has been implemented to ensure code quality, reliability, and seamless deployment. The pipeline includes the following stages:
+- **Unit and Integration Testing:** Automated tests are executed using `pytest`. Both must pass, and additionally unit tests must achieve an 80% code coverage gate to pass.
+- **System Testing:** End-to-end tests validate the complete workflow of the application.
+- **Linting:** Code style and formatting are enforced using `flake8`.
+- **Quality Checks:** Security checks on the code are performed using `bandit`, all dependencies are scanned for vulnerabilities using `pip-audit`, and type checking is strictly enforced using `mypy`.
+- **Mutation Testing:** The robustness of the test suite is evaluated using `MutPy` with a 90% mutation score gate.
+- **Containerization:** The application is containerized using Apptainer, and the resulting artifact is uploaded for deployment.
+- **Production Deployment:** Upon merging to the main branch, the container artifact is deployed to the cluster, and Slurm jobs are submitted with the necessary configurations and secrets.
+    - The slurm job is deployed on the Galileo 100 cluster for a fixed duration to avoid unnecessary resource consumption but demonstrate the deployment process.
+    - 12 hour 2FA SSH certificates are securely managed as GH secrets and refreshed when needed (i.e. before deployment to main if expired).
+
+Secrets are securely managed and injected only when needed (i.e. not stored in artifacts or logs). 
+
+The pipeline design can be clearly seen in the following flowchart:
+
+```mermaid
+flowchart TD
+    A["Push or Pull Request<br/>to main"] --> B["Checkout<br/>Set up Python 3.11.8<br/>Install dependencies"]
+
+    B --> C["Unit + Integration Tests:<br/>pytest<br/>80% coverage gate"]
+    B --> D["System Tests:<br/>pytest system_tests"]
+    B --> E["Linting:<br/>flake8"]
+    B --> F["Quality Checks:<br/>bandit<br/>pip-audit<br/>mypy"]
+
+    C --> G["Mutation Testing:<br/>MutPy<br/>90% mutation score gate"]
+
+    C --> H["All validation complete"]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+
+    H --> I["Build Container<br/>Apptainer builds astralog.sif"]
+    I --> J["Upload Artifact<br/>astralog-container"]
+
+    J --> K{"Push to main?"}
+
+    K -- "No<br/>Pull Request only" --> L["Stop after validation<br/>No deployment"]
+    K -- "Yes" --> M["Production Deployment"]
+
+    M --> N["Download container artifact"]
+    N --> O["Configure SSH agent from secrets"]
+    O --> P["Upload astralog.sif<br/>and job.sh to cluster"]
+    P --> Q["Submit Slurm job<br/>with MQTT secrets"]
+    Q --> R["Clean up SSH secrets and files"]
+```
 
 ---
 ## License

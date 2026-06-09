@@ -18,4 +18,4 @@ From: python:3.11.8-slim-bookworm
 
 %runscript
   cd /app
-  /app/venv/bin/python -m src.main
+  exec /app/venv/bin/python -m src.main "$@"

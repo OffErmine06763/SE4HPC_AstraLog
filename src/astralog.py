@@ -32,13 +32,14 @@ class AstraLog:
 
     # number of processes for the batch analyzer
     _np: int
+    _duration: int | None
 
     ERASE_BATCHES = True
     BATCH_QUEUE_LOOP_TIMEOUT = 2
 
     def __init__(self):
         env = os.environ.get('ASTRALOG_NUM_THREADS')
-        if env is not None:
+        if env is not None and env != '':
             self._np = int(env)
         else:
             self._np = 1
@@ -50,6 +51,8 @@ class AstraLog:
 
         self._reading_freq = 1.0
         self._sensor_count = 0
+
+        self._duration = None
 
         self._freq_meter = FrequencyMeter()
 
@@ -88,15 +91,15 @@ class AstraLog:
                 self._batch_analyzer.analyze_and_output(batch_data)
 
             except FileNotFoundError:
-                print(
-                    f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found"
-                )
+                message = f"ERROR AstraLog - Analysis: batch file '{batch_filename}' not found"
+                print(message)
+                self._batch_analyzer.write_warning_to_alarms(message)
             except (
                 PermissionError
-            ):  # TODO: put "ERROR" or "WARNING" in the logs that need it
-                print(
-                    f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'"
-                )
+            ):
+                message = f"ERROR AstraLog - Analysis: no permission to read batch file '{batch_filename}'"
+                print(message)
+                self._batch_analyzer.write_warning_to_alarms(message)
 
             dt = time.perf_counter() - start
             print(
@@ -127,6 +130,39 @@ class AstraLog:
 
         return True
 
+    def _break_event(self, start_time: float) -> bool:
+        if self._duration is not None and time.monotonic() - start_time >= self._duration:
+            print(f"AstraLog: duration of {self._duration} seconds reached, stopping")
+            self._stop_analysis_event.set()
+            return True
+
+        try:
+            key = get_key()
+            if key and key.lower() == "q":
+                self._stop_analysis_event.set()
+                return True
+        except io.UnsupportedOperation:
+            print("\ngetting key failed\n")
+
+        return False
+
+    def shutdown(self):
+        data_reader = self._data_reader
+        assert data_reader is not None
+
+        data_reader.close()
+
+        # flush what is left in the batch manager
+        filename = self._batch_manager.get_flush_filename()
+        self._batch_manager.flush(filename, full=True)
+        self._batches_ready.put(filename)
+
+        self._stop_analysis_event.set()
+        self._analysis_thread.join()
+        self._batch_analyzer.deinit()
+
+        print("AstraLog: END")
+
     def start(self):
         ok = self.prepare_before_start()
         if not ok:
@@ -138,16 +174,13 @@ class AstraLog:
         self._analysis_thread = threading.Thread(target=self.analysis_loop)
         self._analysis_thread.start()
 
+        start_time = time.monotonic()
+
         while True:
-            # handle execution metrics and keyboard
+            if (self._break_event(start_time)):
+                break
+
             self._freq_meter.update()
-            try:
-                key = get_key()
-                if key and key.lower() == "q":
-                    self._stop_analysis_event.set()
-                    break
-            except io.UnsupportedOperation:
-                print("\ngetting key failed\n")
 
             # retrieve 1 entry from the data stream
             valid, data_raw = data_reader.read_one()
@@ -171,18 +204,7 @@ class AstraLog:
             if filename != "":
                 self._batches_ready.put(filename)
 
-        data_reader.close()
-
-        # flush what is left in the batch manager
-        filename = self._batch_manager.get_flush_filename()
-        self._batch_manager.flush(filename, full=True)
-        self._batches_ready.put(filename)
-
-        self._stop_analysis_event.set()
-        self._analysis_thread.join()
-        self._batch_analyzer.deinit()
-
-        print("AstraLog: END")
+        self.shutdown()
 
     def set_data_source(self, data_reader: DataReader):
         self._data_reader = data_reader
@@ -249,6 +271,9 @@ class AstraLog:
 
     def set_valid_output_file(self, filename: str):
         self._batch_analyzer.set_valid_output_file(filename)
+
+    def set_duration(self, duration: int):
+        self._duration = duration
 
     def on_hz(self, hz):
         print(f"AstraLog: {hz:.2f} iterations/sec", end="")

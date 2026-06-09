@@ -18,11 +18,11 @@ DATA_DIR = os.path.join(pathlib.Path(__file__).parent, "data")
 
 @pytest.fixture(autouse=True)
 def set_environment_variables():
-    os.environ["BROKER_URL"] = "localhost"
-    os.environ["TOPIC"] = "test/topic"
+    os.environ["MQTT_BROKER_URL"] = "localhost"
+    os.environ["MQTT_TOPIC"] = "test/topic"
+    os.environ["MQTT_USER"] = "user"  # will not be used
+    os.environ["MQTT_PASSWORD"] = "pass"  # will not be used
     os.environ["USE_TLS"] = "false"
-    os.environ["USER"] = "user"  # will not be used
-    os.environ["PASSWORD"] = "pass"  # will not be used
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def broker():
 
     try:
         port = broker.get_exposed_port(1883)
-        os.environ["PORT"] = str(port)
+        os.environ["MQTT_PORT"] = str(port)
 
         yield broker  # execute the test
     finally:

@@ -1,4 +1,5 @@
 import os.path
+from io import StringIO
 from unittest.mock import Mock
 from src.astralog import AstraLog
 from src.data_file_reader import DataFileReader
@@ -124,3 +125,22 @@ def test_astralog_set_env_np():
         os.environ["ASTRALOG_NUM_THREADS"] = env
     else:
         os.environ["ASTRALOG_NUM_THREADS"] = ""
+
+# ------------------------------------
+# Failure to open batch
+# ------------------------------------
+
+
+def test_astralog_missing_batch(tmp_path):
+    batch_name = "batch.txt"
+
+    astralog = AstraLog()
+    astralog._batch_analyzer._alarms_output_file = StringIO()
+    astralog._batches_ready.put(batch_name)
+    astralog._stop_analysis_event.set()
+    astralog.analysis_loop()
+
+    message = f"ERROR AstraLog - Analysis: batch file '{batch_name}' not found"
+    alarm_output = astralog._batch_analyzer._alarms_output_file.getvalue()
+
+    assert message == alarm_output
