@@ -12,6 +12,8 @@ module load singularity
 mkdir -p "$TMPDIR/out"
 cd "$SLURM_SUBMIT_DIR"
 
+export ASTRALOG_NUM_THREADS=2
+
 singularity run \
         --bind "$TMPDIR/out:/app/out" \
         astralog.sif \

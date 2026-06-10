@@ -164,6 +164,60 @@ class AstraLog:
         if not ok:
             return
 
+        try:
+            key = get_key()
+            if key and key.lower() == "q":
+                self._stop_analysis_event.set()
+                return True
+        except io.UnsupportedOperation:
+            print("\ngetting key failed\n")
+
+        return False
+
+    def shutdown(self):
+        data_reader = self._data_reader
+        assert data_reader is not None  # narrows for mypy static analysis
+
+        self._analysis_thread = threading.Thread(target=self.analysis_loop)
+        self._analysis_thread.start()
+
+        start_time = time.monotonic()
+
+        while True:
+            if (self._break_event(start_time)):
+                break
+
+            self._freq_meter.update()
+
+            # retrieve 1 entry from the data stream
+            valid, data_raw = data_reader.read_one()
+            if not valid:  # EOF or connection issues
+                break
+
+            # validate the json or csv, returning a struct
+            # TODO: i dont like the fact that we have to run this if at every iteration
+            # tho i dont like the idea of moving this in the reader, i'd rather have the reader
+            # to be a generic source of data, you know division of responsibilities
+            data: SensorReading | None
+            if data_reader.type() == DataReaderType.STREAM:
+                data = validate_sensor_data_json(data_raw, self._sensor_ids)
+            else:
+                data = validate_sensor_data_csv(data_raw, self._sensor_ids)
+
+            if data is None:  # data is invalid
+                continue
+
+            filename = self._batch_manager.add_to_batch(data, self._sensor_count)
+            if filename != "":
+                self._batches_ready.put(filename)
+
+        self.shutdown()
+
+    def start(self):
+        ok = self.prepare_before_start()
+        if not ok:
+            return
+
         data_reader = self._data_reader
         assert data_reader is not None  # narrows for mypy static analysis
 

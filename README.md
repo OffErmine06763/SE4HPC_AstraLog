@@ -22,6 +22,11 @@ Here you can access the official documentation hub and web interface for the **A
 | **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
 | **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
 | **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
+<<<<<<< HEAD
+=======
+
+*(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
+>>>>>>> main
 
 ---
 
@@ -127,7 +132,11 @@ Additionally, in the proposed architecture it's BatchManager that requests the a
 ---
 ## Pipeline & DevOps Workflow
 An elaborate CI/CD pipeline has been implemented to ensure code quality, reliability, and seamless deployment. The pipeline includes the following stages:
+<<<<<<< HEAD
 - **Unit and Integration Testing:** Automated tests are executed using `pytest` with an 80% code coverage gate.
+=======
+- **Unit and Integration Testing:** Automated tests are executed using `pytest`. Both must pass, and additionally unit tests must achieve an 80% code coverage gate to pass.
+>>>>>>> main
 - **System Testing:** End-to-end tests validate the complete workflow of the application.
 - **Linting:** Code style and formatting are enforced using `flake8`.
 - **Quality Checks:** Security checks on the code are performed using `bandit`, all dependencies are scanned for vulnerabilities using `pip-audit`, and type checking is strictly enforced using `mypy`.
