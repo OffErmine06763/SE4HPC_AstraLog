@@ -19,14 +19,9 @@ Here you can access the official documentation hub and web interface for the **A
 | Name Surname | Person Code | Role / Main Focus | Effort (Hours) |
 | :--- | :--- | :--- | :--- |
 | **Alessandro Boschi** | 10861605 | Software architect, serial implementation | 27h |
-| **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM | XXh |
-| **Aldas Lenkšas** | 12345678 | e.g., QA, Pytest & Singularity Container | XXh |
+| **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM, Parallelization logic  | XXh |
+| **Aldas Lenkšas** | 11150896 | QA, Pytest (Unit, Property-based, Integration, System testing), Mutation testing | 32h |
 | **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
-<<<<<<< HEAD
-=======
-
-*(Note: If your group has 3 or 4 students, explicitly describe who handled the distribution/parallelization logic below).*
->>>>>>> main
 
 ---
 
@@ -34,7 +29,10 @@ Here you can access the official documentation hub and web interface for the **A
 
 ```text
 .
-├── res/   # input files, including sensor reading, rules and sensor configuration
+├── .github/
+|   └── workflows/
+|       └── ci.yml  # GitHub CI/CD pipeline
+├── res/            # input files, including sensor reading, rules and sensor configuration
 │   ├── readings_alpha_large.csv
 │   ├── readings_alpha_medium.csv 
 │   ├── readings_alpha_small.csv
@@ -58,12 +56,35 @@ Here you can access the official documentation hub and web interface for the **A
 │   ├── utils.py
 │   └── __init__.py
 └── tests/
-│   ├── TODO
-│   └── __init__.py
-├── astralog.def           # TODO
-├── job.sh                 # TODO 
-├── requirements.txt       # python dependencies (paho-mqtt, pytest, TODO)
-└── requirements-dev.txt   # TODO
+│   ├── integration_tests/                      # integration tests
+|   |   ├── data/                               # data used for testing
+|   |   ├── test_integration_astralog.py        # integration tests for AstraLog
+|   |   ├── test_integration_batch_analyzer.py  # integration tests for BatchAnalyzer
+|   |   ├── test_integration_batch_manager.py   # integration tests for BatchManager
+|   |   └── __init__.py
+│   ├── system_tests/                    # system tests
+|   |   ├── data/                        # data used for system tests
+|   |   ├── test_system_file_based.py    # system tests to test the system in file-based mode
+|   |   ├── test_system_stream_based.py  # system tests to test the system in stream-based mode
+│   ├── unit_tests/                     # unit tests
+|   |   ├── test_astralog.py            # unit tests for AstraLog
+|   |   ├── test_batch_analyzer.py      # unit tests for BatchAnalyzer
+|   |   ├── test_batch_manager.py       # unit tests for BatchManager
+|   |   ├── test_config_reader.py       # unit tests for ConfigReader
+|   |   ├── test_data_file_reader.py    # unit tests for DataFileReader
+|   |   ├── test_data_filter.py         # unit tests for DataFilter
+|   |   ├── test_data_stream_reader.py  # unit tests for DataStreamReader
+|   |   ├── test_rule_property.py       # property-based tests for rules
+|   |   ├── test_rule.py                # unit tests for rules
+|   |   ├── test_utils.py               # unit tests for util functions
+|   |   └── __init__.py
+|   └── __init__.py
+├── .gitignore
+├── astralog.def           # container
+├── job.sh                 # slurm job for running the system on the cluster
+├── LICENCE
+├── requirements.txt       # python dependencies required for running the system
+└── requirements-dev.txt   # python dependencies required for developing the project
 ```
 
 ---
@@ -72,7 +93,14 @@ Here you can access the official documentation hub and web interface for the **A
 
 ### Language and Libraries
 - **Language:** python
-- **Libraries:** `paho-mqtt` (for HiveMQ Broker connection), ... **to be completed/changed as needed**.
+- **Libraries:** 
+    - `paho-mqtt` for HiveMQ Broker connection
+    - `pytest` for testing
+    - `testcontainers` and `docker` for system testing
+    - `flake8` linter
+    - `bandit`, `mypy` and `pip-audit` for QA
+    - `MutPy` for mutation testing
+
 
 ### Architecture & Relation to Phase 1
 The architecture corresponds almost perfectly with the one proposed in the Phase 1 document. In the following lines we go into details of each component in the final architecture.
@@ -127,7 +155,36 @@ Additionally, in the proposed architecture it's BatchManager that requests the a
 ---
 
 ## Testing & Rationale
-**To be completed** 
+
+The system and its components have been thoroughly tested using different testing strategies, all common and standard in the industry.
+
+### Unit tests
+
+Unit tests are meant to test individual functions and their expected outcomes of each system's components. 
+
+On most of the files, >90% coverage is reached, with the 80% coverage in all the project.
+
+80% coverage limit was also used as a threshold for the CI pipeline to pass, keeping the code tested throughout the project's development. This limit was chosen, as it is high enough to guarantee correctness of most of the system's functionality, but less than 100%, as full coverage is near-impossible (for example, unit tests cannot cover `main.py`).
+
+### Property-based tests
+
+Property-based testing is a common and effective technique to unit test particular properties of the components. We have focused on extensivelly testing the rule properties, such as "stateful rule is never violated until the max violations threshold is reached". These kind of tests are executed by generating many random inputs based on the defined property, and the component is tested with each of the input, expecting to give the output correctly for each of them.
+
+### Integration tests
+
+Integration tests are meant to ensure that the more complex functionality of the whole components and their interactions is correct. These tests also include validating that the file-reading and writing within the actual file system is done correctly in some components.
+
+Combined with unit tests, the total coverage reached is 90% which is a very good result for the system.
+
+### System tests
+
+To test the whole system, several system tests were created. They treat the system as a whole by executing the python command while passing `main.py` as an argument together with correctly set environment and command line arguments. As these tests are more heavy and time-consuming, they were carefully selected to cover several main scenarios. 
+
+Two types of tests were made. First one is to test the system that reads the input from the file. The second one is for the stream-based system. For the latter one the MQTT stream has to be instantiated which is done via docker using `testcontainers` python package.
+
+### Mutation testing
+
+Mutation testing is a robust bug-catching strategy, as it allows to improve test set while automatically trying out many mutants applied to the code. As the rule functionality is core at this project, we wanted to make sure that our implementation does not leave any mistakes, and ensure that the test suite for these classes is strong, we applied mutation testing for rules, reaching 100% killed mutants.
 
 ---
 ## Pipeline & DevOps Workflow
@@ -180,7 +237,6 @@ flowchart TD
 
 ---
 ## License
-**Change this if you prefer to adopt a different license** 
 
 This project is licensed under the **MIT License**. See the `LICENSE` file for more details.
 
@@ -194,6 +250,7 @@ TODO
 Install the required dependencies:
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # required only for developing and testing
 ```
 
 ### Execution
@@ -212,7 +269,20 @@ python3 -m src.astralog_collector --mode time --limit 5000 TODO
 ### Testing
 To run the tests locally:
 ```bash
-python3 -m pytest tests/ TODO
+pytest tests/  # runs all tests
+
+# To run test groups:
+pytest tests/unit_tests         # unit and property-based tests
+pytest tests/integration_tests  # integration tests
+pytest tests/system_tests       # system tests
+```
+
+To run mutation testing for rules:
+```
+mut.py \
+--target src.rule \
+--unit-test tests.unit_tests.test_rule \
+--runner pytest \
 ```
 
 ---
