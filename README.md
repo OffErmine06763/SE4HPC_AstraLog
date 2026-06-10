@@ -152,6 +152,13 @@ Additionally, in the proposed architecture it's BatchManager that requests the a
 ### Usage of AI (if any)
 **To be completed** 
 
+**Boschi Alessandro**  
+AI was used to
+- provide the python syntax used to express common programming concepts such as inheritance, abstract classes, error handling...
+- provide descriptions of MQTT functions and simple examples of their usage
+- create helper functions for JSON, CSV and YAML parsing
+- list the names of common functions in python, e.g. type conversions, casting or member functions of the various collections.
+
 ---
 
 ## Testing & Rationale
