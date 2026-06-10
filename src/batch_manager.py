@@ -8,7 +8,7 @@ import csv
 
 class BatchManager:
     # NOTE: there is no specification of what the batch file should contain.
-    # so unlike the example where they write everything, we do sth like
+    # so unlike the example where everything is written, the system instead writes:
     #   timestamp1
     #   reading1,reading2,reading3...
     #   timestamp2
