@@ -29,6 +29,8 @@ This repository contains the **Full Track** solution for the **AstraLog-HPC** pr
 ├── .github/
 |   └── workflows/
 |       └── ci.yml  # GitHub CI/CD pipeline
+├── docs/
+|   └── RequirementAnalysis.pdf  # requirement analysis document produced during phase 1
 ├── res/            # input files, including sensor reading, rules and sensor configuration
 │   ├── readings_alpha_large.csv
 │   ├── readings_alpha_medium.csv 
