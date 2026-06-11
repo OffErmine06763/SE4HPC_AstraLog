@@ -5,10 +5,7 @@ This repository contains the **Full Track** solution for the **AstraLog-HPC** pr
 
 **Selected track**: Full
 
----
-
-## AstraLog Control
-Here you can access the official documentation hub and web interface for the **AstraLog-HPC** project. 
+--- 
 
 **[Click here to access AstraLog Control](https://simonereale.github.io/astralog-control/)**
 
@@ -152,6 +149,12 @@ Additionally, in the proposed architecture it's BatchManager that requests the a
 ### Usage of AI (if any)
 **To be completed** 
 
+**Stanislaw Ostyk-Narbutt**  
+AI was used for
+- helping with making the mermaid diagram (in README)
+- helping with formatting of table (in README)
+- finding bash commands to extract SSH keys from small step (for continuous deployment)
+
 **Boschi Alessandro**  
 AI was used to
 - provide the python syntax used to express common programming concepts such as inheritance, abstract classes, error handling...
@@ -251,8 +254,6 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for m
 
 ## Local Setup & Usage
 
-TODO
-
 ### Installation
 Install the required dependencies:
 ```bash
@@ -261,17 +262,82 @@ pip install -r requirements-dev.txt  # required only for developing and testing
 ```
 
 ### Execution
-To avoid module resolution errors, always run the module from the root directory using the `-m` flag.
 
-**Example 1: Batch every 100 valid messages**
+Run the application with:
+
 ```bash
-python3 -m src.astralog_collector --mode count --limit 100 TODO
+python main.py --reading-mode <file|mqtt> --batch-mode <count|time> --limit <value> [options]
 ```
 
-**Example 2: Batch every 5000 milliseconds (5 seconds)**
+#### Required Arguments
+
+| Argument         | Description                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| `--reading-mode` | Source of telemetry data. Choose `file` or `mqtt`.                                          |
+| `--batch-mode`   | Batch accumulation strategy. Choose `count` or `time`.                                      |
+| `--limit`        | Number of messages per batch (`count` mode) or time interval in milliseconds (`time` mode). |
+
+#### Optional Arguments
+
+| Argument               | Default                  | Description                                                   |
+| ---------------------- | ------------------------ | ------------------------------------------------------------- |
+| `--readings-file`      | `res/readings_sigma.csv` | Input readings file (used when `--reading-mode file`).        |
+| `--sensors-file`       | `res/sensors_sigma.yaml` | Sensor configuration file.                                    |
+| `--rules-file`         | `res/rules_sigma.json`   | Rules configuration file.                                     |
+| `--output-dir`         | `out/readings`           | Directory where batch files are written.                      |
+| `--valid-output-file`  | `out/valid.txt`          | File containing valid readings.                               |
+| `--alarms-output-file` | `out/alarms.txt`         | File containing generated alarms.                             |
+| `--duration`           | Runs indefinitely        | Number of seconds before the application stops automatically. |
+
+#### Examples
+
+Process readings from a file in batches of 100 messages using the default (provided) `sigma` ruleset and files:
+
 ```bash
-python3 -m src.astralog_collector --mode time --limit 5000 TODO
+python main.py \
+  --reading-mode file \
+  --batch-mode count \
+  --limit 100
 ```
+
+Process readings from a file every 5 seconds using the default (provided) `sigma` ruleset and files:
+
+```bash
+python main.py \
+  --reading-mode file \
+  --batch-mode time \
+  --limit 5000
+```
+
+Run with custom input and output files:
+
+```bash
+python main.py \
+  --reading-mode file \
+  --batch-mode count \
+  --limit 50 \
+  --readings-file data/readings.csv \
+  --sensors-file config/sensors.yaml \
+  --rules-file config/rules.json \
+  --output-dir output/batches
+```
+
+Run for a limited duration (60 seconds):
+
+```bash
+python main.py \
+  --reading-mode mqtt \
+  --batch-mode time \
+  --limit 1000 \
+  --duration 60
+```
+
+For a complete list of available options:
+
+```bash
+python main.py --help
+```
+
 
 ### Testing
 To run the tests locally:
