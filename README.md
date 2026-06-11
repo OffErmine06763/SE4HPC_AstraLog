@@ -16,7 +16,7 @@ This repository contains the **Full Track** solution for the **AstraLog-HPC** pr
 | Name Surname | Person Code | Role / Main Focus | Effort (Hours) |
 | :--- | :--- | :--- | :--- |
 | **Alessandro Boschi** | 10861605 | Software architect, serial implementation | 27h |
-| **Ondřej Faiman** | 12345678 | e.g., DevOps, CI/CD Pipeline & SLURM, Parallelization logic  | XXh |
+| **Ondřej Faiman** | 11138659 | QA, Pytest (Unit testing), Parallelization logic  | 29h |
 | **Aldas Lenkšas** | 11150896 | QA, Pytest (Unit, Property-based, Integration, System testing), Mutation testing | 32h |
 | **Stanisław Ostyk-Narbutt** | 11125177 | CI/CD pipeline, slurm, singularity/apptainer, and cluster deployment | 30h |
 
@@ -146,7 +146,49 @@ Due to the parallelization requirements, also the behavior of BatchAnalyzer slig
 Additionally, in the proposed architecture it's BatchManager that requests the analysis of a batch, but since the role of orchestration of the components has been moved to AstraLog, it's now the latter responsibility to initiate the BatchAnalyzer operation.
 
 ### Distribution and parallelization approach
-**To be completed** 
+The system uses two levels of parallelism.
+
+**Top-level: Reading vs Analysis**
+
+The main thread handles incoming data, validates it, and writes filled batches to disk.
+A separate background thread (`analysis_loop`) concurrently reads and processes those batch files.
+The main thread communicates with the analysis thread via a queue and a stopping flag:
+
+- `_batches_ready` — filenames of batch files ready to be analyzed
+- `_stop_analysis_event` — signals the analysis thread to stop once all batches are processed
+
+Since file I/O releases Python's GIL, these two activities genuinely overlap.
+
+**Batch-level: Analysis vs Writing**  
+
+Within the analysis of each batch, a second background thread (`writing_loop`) handles writing
+both valid data and alarms to their respective output files, overlapping with the ongoing rule
+evaluation. The analysis thread communicates with the writing thread via two queues and a stopping flag:
+
+- `_valid_data_ready` — indices of nominal timestamps ready to be written
+- `_alarm_data_ready` — rule/timestamp pairs for triggered alarms
+- `_stop_writing_event` — signals the writing thread to stop once all data is written
+
+The writing thread drains both queues continuously, only stopping once both are empty and the
+analysis signals completion via `_stop_writing_event`.
+
+**Rule evaluation: Process pool**  
+
+To enable the evaluation of rules in parallel with N processes, a pool of worker processes
+(created once at startup, size controlled by the `ASTRALOG_NUM_THREADS` environment variable)
+is used to overcome the GIL for CPU-bound work.
+
+**Independent rules** (Simple, Step Difference, Stateful) within each priority level are evaluated
+in parallel across processes. Since these rules mutate internal state, the updated rule objects are
+returned from each worker and reapplied in the main process after each future resolves.
+
+**Logical Correlation rules** are evaluated in parallel layer by layer — all nodes within the same
+graph layer are independent of each other and can safely run concurrently. The dependency graph
+update (`ready_pred`, next layer population) happens sequentially in the main process between
+layers.
+
+In both cases, priority ordering is strictly enforced: all rules of a given priority complete fully
+before evaluation of the next priority begins.
 
 ### Usage of AI (if any)
 **To be completed** 
@@ -164,6 +206,12 @@ AI was used to
 - create helper functions for JSON, CSV and YAML parsing
 - list the names of common functions in python, e.g. type conversions, casting or member functions of the various collections.
 
+**Ondřej Faiman**  
+AI was used to
+- provide Python syntax for Python's processes and threads
+- find ways to overcome GIL
+- split complex function into simpler ones
+- provide error handling in the final stage of the project
 ---
 
 ## Testing & Rationale
@@ -371,6 +419,13 @@ mut.py \
 --target src.rule \
 --unit-test tests.unit_tests.test_rule \
 --runner pytest \
+```
+
+
+### Parallel execution
+To enable the evaluation of rules in parallel with N processes:
+```
+export ASTRALOG_NUM_THREADS=N
 ```
 
 ---
