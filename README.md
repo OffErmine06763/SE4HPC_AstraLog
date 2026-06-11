@@ -289,6 +289,19 @@ python main.py --reading-mode <file|mqtt> --batch-mode <count|time> --limit <val
 | `--alarms-output-file` | `out/alarms.txt`         | File containing generated alarms.                             |
 | `--duration`           | Runs indefinitely        | Number of seconds before the application stops automatically. |
 
+#### MQTT Environment Variables
+To make use of the MQTT stream as source of data, make sure to define the following environment variables before launching the program:
+
+| Argument               | For the provided stream                               |
+| ---------------------- | ----------------------------------------------------- |
+| `MQTT_BROKER_URL`      | `fb2fb70e5df845aaa8ac44ead8e3c5e1.s1.eu.hivemq.cloud` |
+| `MQTT_PORT`            | `8883`                                                |
+| `MQTT_TOPIC`           | `esa/astralog/telemetry`                              |
+| `MQTT_USER`            | `students`                                            |
+| `MQTT_PASSWORD`        | `Listeningstuff26`                                    |
+
+Optionally, you can also set `MQTT_TLS` as either `true` (default) or `false`.
+
 #### Examples
 
 Process readings from a file in batches of 100 messages using the default (provided) `sigma` ruleset and files:
