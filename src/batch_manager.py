@@ -7,8 +7,8 @@ import csv
 
 
 class BatchManager:
-    # TODO: there is no specification of what the batch file should contain.
-    # so unlike the example where they write everything, we could do sth like
+    # NOTE: there is no specification of what the batch file should contain.
+    # so unlike the example where everything is written, the system instead writes:
     #   timestamp1
     #   reading1,reading2,reading3...
     #   timestamp2
@@ -58,8 +58,6 @@ class BatchManager:
         return os.path.join(self.output_dir, f"raw_data_{int(time.time())}_{seq_num:04d}.txt")
 
     def add_to_batch(self, data: SensorReading, sensor_count: int) -> str:
-        # TODO: MAYBE have a tmp file where you push complete timestamps, rename it when full
-
         self._count += 1
 
         if data.ts != self._current_ts:
