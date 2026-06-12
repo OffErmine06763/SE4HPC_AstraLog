@@ -191,9 +191,8 @@ In both cases, priority ordering is strictly enforced: all rules of a given prio
 before evaluation of the next priority begins.
 
 ### Usage of AI (if any)
-**To be completed** 
 
-**Stanislaw Ostyk-Narbutt**  
+**Stanisław Ostyk-Narbutt**  
 AI was used for
 - helping with making the mermaid diagram (in README)
 - helping with formatting of table (in README)
@@ -212,6 +211,14 @@ AI was used to
 - find ways to overcome GIL
 - split complex function into simpler ones
 - provide error handling in the final stage of the project
+
+**Aldas Lenkšas**
+
+AI was used to
+- help understand tricky (and more poorly-documented) parts of the documentation of the libraries, for example, of the Mut.Py
+- write the correct annotations for some property-based tests
+- provide/fix the syntax for using testcontainers together with pytest
+
 ---
 
 ## Testing & Rationale
